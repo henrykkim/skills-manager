@@ -52,6 +52,7 @@ struct StatusDot: View {
 struct InvocationChip: View {
     let invocation: String
     @State private var copied = false
+    @State private var revertTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -62,9 +63,11 @@ struct InvocationChip: View {
             Button {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(invocation, forType: .string)
+                revertTask?.cancel()
                 setCopied(true)
-                Task {
+                revertTask = Task {
                     try? await Task.sleep(for: .seconds(1.6))
+                    guard !Task.isCancelled else { return }
                     setCopied(false)
                 }
             } label: {
