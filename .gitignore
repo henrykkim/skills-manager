@@ -1,0 +1,6 @@
+.DS_Store
+build/
+SkillsManager.xcodeproj/
+.build/
+.swiftpm/
+*.xcuserstate
