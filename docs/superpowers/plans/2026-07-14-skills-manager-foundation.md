@@ -1242,7 +1242,7 @@ public enum PluginRegistry {
 - [ ] **Step 6: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (18 tests).
+Expected: PASS (19 tests — includes the review-added SettingsReader hardening test).
 
 - [ ] **Step 7: Commit**
 
@@ -1362,7 +1362,7 @@ public enum Invocation {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (24 tests).
+Expected: PASS (25 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1473,7 +1473,7 @@ public struct Inventory: Sendable {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (27 tests).
+Expected: PASS (28 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1566,7 +1566,7 @@ public final class Debouncer: @unchecked Sendable {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (29 tests). If `separateBurstsEachFire` is flaky under load, raise its sleeps to 300 ms — never delete the test.
+Expected: PASS (30 tests). If `separateBurstsEachFire` is flaky under load, raise its sleeps to 300 ms — never delete the test.
 
 - [ ] **Step 5: Commit**
 
@@ -2609,7 +2609,7 @@ cd "/Users/henrykkim/Claude/Skills Manager" && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
-Expected: all 29 tests PASS, `** BUILD SUCCEEDED **`.
+Expected: all 30 tests PASS, `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 4: Commit**
 
@@ -2621,7 +2621,7 @@ cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "docs
 
 ## Done means
 
-- `swift test`: 29/29 green.
+- `swift test`: 30/30 green.
 - App builds, launches, and shows the real machine's plugins (descriptions + provenance), personal skills, and shared skills with live search; plugins expand to selectable bundled skills.
 - Every skill and plugin command shows a copyable invocation, argument hints where declared, and plain-English availability that never claims access an agent doesn't have.
 - Broken fixtures appear under Needs Attention with reasons — nothing vanishes; connected shared skills never appear twice.

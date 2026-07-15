@@ -4,3 +4,4 @@ SkillsManager.xcodeproj/
 .build/
 .swiftpm/
 *.xcuserstate
+.claude/scheduled_tasks.lock
