@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "demo-plugin@test-market": true,
+    "disabled-plugin@test-market": false
+  },
+  "unrelatedSetting": { "keep": true }
+}
