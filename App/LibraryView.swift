@@ -105,13 +105,43 @@ struct LibraryView: View {
             && filteredShared.isEmpty && store.inventory.issues.isEmpty
     }
 
-    // Task 15 replaces this placeholder with the real detail views.
     @ViewBuilder
     private var detailView: some View {
+        switch selection {
+        case .skill(let id):
+            if let skill = allSkills.first(where: { $0.id == id }) {
+                SkillDetailView(skill: skill)
+            } else {
+                missingSelection
+            }
+        case .plugin(let id):
+            if let plugin = store.inventory.plugins.first(where: { $0.id == id }) {
+                PluginDetailView(plugin: plugin)
+            } else {
+                missingSelection
+            }
+        case .needsAttention:
+            NeedsAttentionView(issues: store.inventory.issues)
+        case nil:
+            ContentUnavailableView(
+                "Select an Item",
+                systemImage: "sidebar.left",
+                description: Text("Choose a skill or plugin to see how to use it."))
+        }
+    }
+
+    /// Every skill from every source — used to resolve the sidebar selection.
+    private var allSkills: [Skill] {
+        store.inventory.personalSkills
+            + store.inventory.sharedSkills
+            + store.inventory.plugins.flatMap(\.skills)
+    }
+
+    private var missingSelection: some View {
         ContentUnavailableView(
-            "Select an Item",
-            systemImage: "sidebar.left",
-            description: Text("Choose a skill or plugin to see how to use it."))
+            "Item No Longer Exists",
+            systemImage: "questionmark.folder",
+            description: Text("It changed on disk — pick another item."))
     }
 
     // MARK: Filtering
