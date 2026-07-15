@@ -18,10 +18,13 @@ final class FileWatcher: @unchecked Sendable {
 
     init(root: URL, targets: [URL], onChange: @escaping @Sendable () -> Void) {
         debouncer = Debouncer(delay: 1.0, queue: .main, action: onChange)
-        // FSEvents delivers canonical paths — resolve symlinks up front or a
-        // root like /tmp (→ /private/tmp) silently never matches.
-        let rootPath = root.resolvingSymlinksInPath().path
-        targetPrefixes = targets.map { $0.resolvingSymlinksInPath().path }
+        // FSEvents delivers canonical paths (realpath-style, e.g. /private/tmp/…).
+        // Foundation's resolvingSymlinksInPath() is NOT canonical — it strips
+        // /private, so /tmp-rooted watches would silently never match. Use
+        // realpath(3) via canonicalize(); nonexistent targets canonicalize
+        // their nearest existing ancestor.
+        let rootPath = Self.canonicalize(root)
+        targetPrefixes = targets.map(Self.canonicalize)
 
         var context = FSEventStreamContext(
             version: 0,
@@ -47,6 +50,18 @@ final class FileWatcher: @unchecked Sendable {
             FSEventStreamSetDispatchQueue(stream, queue)
             FSEventStreamStart(stream)
         }
+    }
+
+    /// True canonical path via realpath(3) — resolvingSymlinksInPath() strips
+    /// /private (making /tmp roots never match FSEvents' canonical output).
+    private static func canonicalize(_ url: URL) -> String {
+        if let rp = realpath(url.path, nil) {
+            defer { free(rp) }
+            return String(cString: rp)
+        }
+        let parent = url.deletingLastPathComponent()
+        guard parent.path != url.path else { return url.path }
+        return canonicalize(parent) + "/" + url.lastPathComponent
     }
 
     /// An event is relevant if it happened under a target, or at/above one
