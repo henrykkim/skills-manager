@@ -1414,7 +1414,7 @@ cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat
 
 ## UI design language (applies to Tasks 11–16)
 
-Derived from the `apple-design` skill (owner-requested) — invoke `make-interfaces-feel-better` and keep `apple-design` principles active during every UI task. The SwiftUI translation used throughout:
+Derived from the `apple-design` skill (owner-requested) — invoke `apple-design` and `make-interfaces-feel-better` at the start of every UI task, and consult `emil-design-eng` for component-level polish decisions (all three are installed on this machine). The SwiftUI translation used throughout:
 
 - **Motion:** critically damped springs only — `.smooth` / `.snappy`, never bounce (nothing in v1 carries gesture momentum). Every state change animates from the current value (SwiftUI default). Honor `accessibilityReduceMotion` with cross-fades or no animation.
 - **Materials & hierarchy:** the sidebar keeps its native translucent material (free with `NavigationSplitView`); detail cards sit on `.background.secondary`; never stack translucent surfaces.
