@@ -28,8 +28,10 @@ opaque auto-updates, and install instructions that assume terminal fluency.
    plugin on the Mac, with plain-English descriptions, provenance, and status.
 2. **Cheat sheet**: for every skill/plugin, the exact invocation to type, its
    arguments, and every command a plugin provides.
-3. **Visibility map**: per skill, which agent surfaces can see it; where it is
-   *not* visible, a one-sentence reason and a suggested fix.
+3. **Visibility map & per-agent control**: per skill, which agent surfaces can
+   see it and whether it is enabled there — with a toggle to enable/disable it
+   per agent right from the map. Where it is *not* visible, a one-sentence
+   reason and a suggested fix. Easy visibility *and* control.
 4. **No-terminal install**: paste a command snippet or a website link; the app
    resolves it, previews it, and installs it.
 5. **Update transparency**: installed version, last-update time, auto-update
@@ -85,7 +87,10 @@ on the machine, aggregated from all sources in §6.2. Each row shows:
 - Kind: personal skill · plugin (with N skills inside) · project skill ·
   cloud skill (read-only) · other-agent skill
 - Source/provenance (e.g., "Anthropic official marketplace", "GitHub: owner/repo")
-- Enabled/disabled state (toggleable where the underlying system supports it)
+- Per-agent status chips: one chip per detected agent showing enabled /
+  disabled / not connected at a glance (the Library answers "which skills are
+  on for which agent" without opening anything)
+- Enabled/disabled toggle (per-agent toggles live in the visibility map)
 - Last updated
 
 Grouping/filtering by kind, source, and agent. Plugins expand to show their
@@ -114,8 +119,12 @@ Selecting any item opens its detail view with two key blocks:
 - One row per detected other agent (Codex, Cursor, Gemini CLI, Copilot, …).
   Agents not installed on this Mac never appear.
 
-Each row shows: ✓ visible (with the name it appears under) / ✗ not visible.
-Every ✗ carries a reason and remediation from the catalog in §6.5, e.g.:
+Each row is a control, not just an indicator: a toggle showing whether the
+skill is enabled for that agent, plus the name it appears under there.
+Toggling off disables the skill for that agent only; toggling on enables or
+connects it (mechanics in §6.4). Rows that cannot be toggled (the read-only
+claude.ai row) say why. Every off/not-visible state carries a reason and
+remediation from the catalog in §6.5, e.g.:
 
 > ✗ Cursor — Cursor doesn't read this folder. **[Connect]** to make it
 > available there.
@@ -210,6 +219,13 @@ binary. The claude.ai row appears only if the cloud cache exists.
   (`.claude.json.lock`).
 - **Connect**: symlink into target agent's skills dir; fallback copy with a
   "copies don't auto-update together" note.
+- **Per-agent toggle**: uses each agent's native mechanism where one exists —
+  Claude Code plugins via `claude plugin enable/disable`, Claude Code skill
+  visibility via `skillOverrides` in `settings.json`, Codex via
+  `[[skills.config]]` entries in `~/.codex/config.toml`, Gemini CLI via
+  `gemini skills enable/disable`. For agents with no native disable switch
+  (Cursor, Copilot), off = remove the symlink, on = restore it — same end
+  result, and the UI says so plainly.
 - Every writer shows a preview of the exact change before executing (§8).
 
 ### 6.5 Visibility-reason catalog
@@ -220,6 +236,7 @@ The visibility map's explanations come from a fixed, testable rule set:
 |---|---|---|
 | Skill lives in a project folder | "Only available inside <project>" | Connect (symlinks it into the personal skills folder, same mechanics as §5.2) |
 | Plugin disabled | "Its plugin <name> is turned off" | Enable toggle |
+| Disabled for this agent | "Turned off for <agent>" | Toggle on |
 | `disable-model-invocation: true` | "Only runs when you type its command" | none (informational) |
 | Not user-invocable | "Claude uses it automatically; it won't appear in the / menu" | none (informational) |
 | Agent doesn't read the skill's folder | "<Agent> doesn't look in this location" | Connect |
