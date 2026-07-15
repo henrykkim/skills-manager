@@ -11,6 +11,7 @@ struct LibraryView: View {
     @Environment(InventoryStore.self) private var store
     @State private var selection: LibrarySelection?
     @State private var searchText = ""
+    @State private var expandedPlugins: Set<String> = []
 
     var body: some View {
         NavigationSplitView {
@@ -42,7 +43,20 @@ struct LibraryView: View {
                     // Expandable (spec §5.1): bundled skills are selectable rows
                     // so each gets its full cheat sheet, not just a chip.
                     ForEach(filteredPlugins) { plugin in
-                        DisclosureGroup {
+                        // While searching: always expanded so the matching bundled
+                        // skill/command is visible; manual toggling is suspended.
+                        // When search clears: manual expansion state is restored.
+                        DisclosureGroup(isExpanded: Binding(
+                            get: { !searchText.isEmpty || expandedPlugins.contains(plugin.id) },
+                            set: { newValue in
+                                guard searchText.isEmpty else { return }
+                                if newValue {
+                                    expandedPlugins.insert(plugin.id)
+                                } else {
+                                    expandedPlugins.remove(plugin.id)
+                                }
+                            }
+                        )) {
                             ForEach(plugin.skills) { skill in
                                 SkillRow(skill: skill).tag(LibrarySelection.skill(skill.id))
                             }
@@ -128,6 +142,7 @@ struct LibraryView: View {
             || plugin.commands.contains {
                 $0.name.localizedLowercase.contains(q)
                     || ($0.summary?.localizedLowercase.contains(q) ?? false)
+                    || $0.invocation.localizedLowercase.contains(q)
             }
     }
 }

@@ -36,10 +36,12 @@ struct PluginRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
-                Text(caption)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
+                if !caption.isEmpty {
+                    Text(caption)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
             }
             Spacer()
             StatusDot(isEnabled: plugin.isEnabled)
