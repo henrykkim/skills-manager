@@ -33,6 +33,7 @@ struct SkillDetailView: View {
                             Text(skill.directory.path)
                                 .truncationMode(.middle)
                                 .lineLimit(1)
+                                .textSelection(.enabled)
                             Button("Reveal in Finder") {
                                 NSWorkspace.shared.activateFileViewerSelecting([skill.directory])
                             }

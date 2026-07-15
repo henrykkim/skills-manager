@@ -23,6 +23,7 @@ struct NeedsAttentionView: View {
                                 .foregroundStyle(.secondary)
                                 .truncationMode(.middle)
                                 .lineLimit(1)
+                                .textSelection(.enabled)
                             Button("Reveal in Finder") {
                                 NSWorkspace.shared.activateFileViewerSelecting([issue.location])
                             }
