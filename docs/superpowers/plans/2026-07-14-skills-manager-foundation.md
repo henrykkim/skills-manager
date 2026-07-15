@@ -1277,11 +1277,12 @@ private func makeSkill(folder: String, displayName: String? = nil, source: Skill
     #expect(Invocation.string(for: skill) == "/good-skill")
 }
 
-@Test func invocationUsesDeclaredNameNotFolderName() {
-    // The header shows displayName (frontmatter name) — the copyable command
-    // must agree with it, or the app contradicts itself.
+@Test func invocationUsesFolderNameNotDeclaredName() {
+    // Ground truth (Claude Code docs, "How a skill gets its command name"):
+    // the typed command comes from the DIRECTORY name; frontmatter `name` is a
+    // display label only. displayName stays for headers — never for commands.
     let skill = makeSkill(folder: "folder-name", displayName: "actual-name", source: .personal)
-    #expect(Invocation.string(for: skill) == "/actual-name")
+    #expect(Invocation.string(for: skill) == "/folder-name")
 }
 
 @Test func sharedSkillInvocationIsSlashName() {
@@ -1324,16 +1325,17 @@ import Foundation
 
 /// Computes what the user actually types — the heart of the cheat sheet (spec §5.2).
 public enum Invocation {
-    /// Uses displayName (the skill's declared frontmatter name, folder fallback):
-    /// agents resolve skills by declared name, and the detail header shows the
-    /// same value — the copyable command must never contradict the title above it.
+    /// Uses folderName: per Claude Code's docs ("How a skill gets its command
+    /// name"), the typed command comes from the skill's DIRECTORY name — the
+    /// frontmatter `name` is a display label and does not change what you type.
+    /// (Exception not relevant here: a plugin-root SKILL.md; plan 2 note.)
     public static func string(for skill: Skill) -> String {
         switch skill.source {
         case .personal, .shared:
-            return "/\(skill.displayName)"
+            return "/\(skill.folderName)"
         case .plugin(let pluginID):
             let pluginName = pluginID.split(separator: "@", maxSplits: 1).first.map(String.init) ?? pluginID
-            return "/\(pluginName):\(skill.displayName)"
+            return "/\(pluginName):\(skill.folderName)"
         }
     }
 
