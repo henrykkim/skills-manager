@@ -36,13 +36,16 @@ Skills Manager/
 │   │   ├── SettingsReader.swift         # Task 6 — enabledPlugins map
 │   │   ├── PluginModels.swift           # Task 7 — Plugin, PluginCommand
 │   │   ├── PluginRegistry.swift         # Task 7 — installed_plugins.json v2 + cache scan
+│   │   │                                #          + plugin.json descriptions + marketplace provenance
 │   │   ├── ISODate.swift                # Task 7 — tolerant ISO-8601 parsing
 │   │   ├── Invocation.swift             # Task 8 — cheat-sheet strings
 │   │   ├── Inventory.swift              # Task 9 — aggregate of everything
 │   │   └── Debouncer.swift              # Task 10 — burst-collapsing callback
 │   └── Tests/SkillsManagerCoreTests/
 │       ├── Fixtures/home/…              # Task 2 — replica config tree (dot-claude/, dot-agents/)
-│       ├── FixtureHome.swift            # Task 2 — copies fixtures to temp dir, renames to dotfiles
+│       ├── FixtureHome.swift            # Task 2 — copies fixtures to temp dir, renames to dotfiles,
+│       │                                #          writes hidden plugin manifests, creates symlinks
+│       ├── FixtureHomeTests.swift       # Task 2
 │       ├── SmokeTests.swift             # Task 1
 │       ├── ClaudePathsTests.swift       # Task 3
 │       ├── FrontmatterTests.swift       # Task 4
@@ -149,11 +152,12 @@ cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat
 
 ### Task 2: Fixture home tree + loader helper
 
-A miniature replica of a real machine's config, used by every subsequent test. Bundled resources use `dot-claude`/`dot-agents` directory names (SPM resource copying and hidden dotfolders don't mix reliably); the helper copies the tree to a temp dir and renames them to real dotfolders.
+A miniature replica of a real machine's config, used by every subsequent test. Bundled resources use `dot-claude`/`dot-agents` directory names (SPM resource copying and hidden dotfolders don't mix reliably); the helper copies the tree to a temp dir, renames them to real dotfolders, writes the hidden `.claude-plugin/plugin.json` manifests, and creates the personal→shared symlink that real installers (`npx skills`) create.
 
 **Files:**
 - Create: `SkillsManagerCore/Tests/SkillsManagerCoreTests/Fixtures/home/…` (tree below)
 - Create: `SkillsManagerCore/Tests/SkillsManagerCoreTests/FixtureHome.swift`
+- Create: `SkillsManagerCore/Tests/SkillsManagerCoreTests/FixtureHomeTests.swift`
 - Delete: `SkillsManagerCore/Tests/SkillsManagerCoreTests/Fixtures/README.md`
 
 - [ ] **Step 1: Create the fixture tree.** Exact files and contents (create each with the Write tool):
@@ -257,10 +261,22 @@ disable-model-invocation: true
 Body text.
 ```
 
+`Fixtures/home/dot-claude/plugins/known_marketplaces.json`
+```json
+{
+  "test-market": {
+    "source": { "source": "github", "repo": "test-org/test-market" },
+    "installLocation": "/nonexistent/marketplaces/test-market",
+    "lastUpdated": "2026-06-01T00:00:00Z"
+  }
+}
+```
+
 `Fixtures/home/dot-claude/plugins/cache/test-market/demo-plugin/1.2.0/commands/do-thing.md`
 ```markdown
 ---
 description: Does the demo thing end to end.
+argument-hint: "<target>"
 ---
 
 Run the demo thing.
@@ -281,7 +297,17 @@ Body text.
 ```markdown
 ---
 name: shared-skill
-description: Lives in the vendor-neutral shared location.
+description: Lives in the shared location AND is symlinked into ~/.claude/skills (the helper creates the link).
+---
+
+Body text.
+```
+
+`Fixtures/home/dot-agents/skills/shared-only-skill/SKILL.md`
+```markdown
+---
+name: shared-only-skill
+description: Only in the shared folder — not connected to Claude Code.
 ---
 
 Body text.
@@ -289,19 +315,29 @@ Body text.
 
 Also delete `Fixtures/README.md` from Task 1.
 
-- [ ] **Step 2: Write the failing helper test** — append to a new file `SkillsManagerCore/Tests/SkillsManagerCoreTests/FixtureHomeTests.swift`
+(Hidden `.claude-plugin/plugin.json` manifests and the personal→shared symlink can't be bundled as SPM resources — the helper in Step 4 writes them at fixture-materialization time instead.)
+
+- [ ] **Step 2: Write the failing helper test** — create `SkillsManagerCore/Tests/SkillsManagerCoreTests/FixtureHomeTests.swift`
 
 ```swift
 import Foundation
 import Testing
 
-@Test func fixtureHomeMaterializesDotfolders() throws {
+@Test func fixtureHomeMaterializesDotfoldersManifestsAndSymlinks() throws {
     let home = try FixtureHome.make()
     defer { try? FileManager.default.removeItem(at: home) }
     let fm = FileManager.default
     #expect(fm.fileExists(atPath: home.appending(path: ".claude/skills/good-skill/SKILL.md").path))
     #expect(fm.fileExists(atPath: home.appending(path: ".claude/plugins/installed_plugins.json").path))
+    #expect(fm.fileExists(atPath: home.appending(path: ".claude/plugins/known_marketplaces.json").path))
     #expect(fm.fileExists(atPath: home.appending(path: ".agents/skills/shared-skill/SKILL.md").path))
+    // Written by the helper (hidden files don't survive SPM resource bundling):
+    #expect(fm.fileExists(atPath: home.appending(
+        path: ".claude/plugins/cache/test-market/demo-plugin/1.2.0/.claude-plugin/plugin.json").path))
+    // The same personal→shared symlink real installers (npx skills) create:
+    let link = home.appending(path: ".claude/skills/shared-skill")
+    let destination = try fm.destinationOfSymbolicLink(atPath: link.path)
+    #expect(destination.hasSuffix(".agents/skills/shared-skill"))
 }
 ```
 
@@ -316,8 +352,9 @@ Expected: BUILD FAILURE — `cannot find 'FixtureHome' in scope`.
 import Foundation
 
 enum FixtureHome {
-    /// Copies the bundled fixture tree to a unique temp dir and renames
-    /// dot-claude/dot-agents to real hidden folders. Caller deletes when done.
+    /// Copies the bundled fixture tree to a unique temp dir, renames
+    /// dot-claude/dot-agents to real hidden folders, writes the hidden plugin
+    /// manifests, and creates the personal→shared symlink. Caller deletes when done.
     static func make() throws -> URL {
         let fm = FileManager.default
         guard let source = Bundle.module.url(forResource: "home", withExtension: nil, subdirectory: "Fixtures") else {
@@ -327,6 +364,18 @@ enum FixtureHome {
         try fm.copyItem(at: source, to: dest)
         try rename(dest.appending(path: "dot-claude"), to: ".claude")
         try rename(dest.appending(path: "dot-agents"), to: ".agents")
+
+        // Hidden files don't reliably survive SPM's resource copying, and
+        // symlinks can't be bundled at all — write both here instead.
+        try writePluginManifest(home: dest, marketplace: "test-market", plugin: "demo-plugin",
+                                version: "1.2.0", description: "Demo plugin for tests")
+        try writePluginManifest(home: dest, marketplace: "test-market", plugin: "disabled-plugin",
+                                version: "0.1.0", description: "Disabled in settings")
+        // The shape `npx skills add` creates: canonical copy in ~/.agents/skills,
+        // symlinked into ~/.claude/skills so Claude Code sees it.
+        try fm.createSymbolicLink(
+            at: dest.appending(path: ".claude/skills/shared-skill"),
+            withDestinationURL: dest.appending(path: ".agents/skills/shared-skill"))
         return dest
     }
 
@@ -334,6 +383,15 @@ enum FixtureHome {
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else { return }
         try fm.moveItem(at: url, to: url.deletingLastPathComponent().appending(path: newName))
+    }
+
+    private static func writePluginManifest(home: URL, marketplace: String, plugin: String,
+                                            version: String, description: String) throws {
+        let dir = home.appending(
+            path: ".claude/plugins/cache/\(marketplace)/\(plugin)/\(version)/.claude-plugin")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let json = #"{ "name": "\#(plugin)", "version": "\#(version)", "description": "\#(description)" }"#
+        try json.write(to: dir.appending(path: "plugin.json"), atomically: true, encoding: .utf8)
     }
 }
 ```
@@ -372,6 +430,7 @@ import Testing
     #expect(paths.settingsFile.path == "/fake/home/.claude/settings.json")
     #expect(paths.pluginsDir.path == "/fake/home/.claude/plugins")
     #expect(paths.installedPluginsFile.path == "/fake/home/.claude/plugins/installed_plugins.json")
+    #expect(paths.knownMarketplacesFile.path == "/fake/home/.claude/plugins/known_marketplaces.json")
     #expect(paths.pluginsCacheDir.path == "/fake/home/.claude/plugins/cache")
     #expect(paths.agentsDir.path == "/fake/home/.agents")
     #expect(paths.sharedSkillsDir.path == "/fake/home/.agents/skills")
@@ -414,6 +473,7 @@ public struct ClaudePaths: Sendable {
     public var settingsFile: URL { claudeDir.appending(path: "settings.json") }
     public var pluginsDir: URL { claudeDir.appending(path: "plugins", directoryHint: .isDirectory) }
     public var installedPluginsFile: URL { pluginsDir.appending(path: "installed_plugins.json") }
+    public var knownMarketplacesFile: URL { pluginsDir.appending(path: "known_marketplaces.json") }
     public var pluginsCacheDir: URL { pluginsDir.appending(path: "cache", directoryHint: .isDirectory) }
     public var agentsDir: URL { home.appending(path: ".agents", directoryHint: .isDirectory) }
     public var sharedSkillsDir: URL { agentsDir.appending(path: "skills", directoryHint: .isDirectory) }
@@ -614,9 +674,14 @@ import Testing
 
     let result = SkillScanner.scan(directory: paths.personalSkillsDir, source: .personal)
 
-    // good-skill, minimal-skill, background-skill parse; broken-skill and empty-folder become issues
-    #expect(result.skills.count == 3)
+    // good-skill, minimal-skill, background-skill, and the symlinked shared-skill parse;
+    // broken-skill and empty-folder become issues
+    #expect(result.skills.count == 4)
     #expect(result.issues.count == 2)
+
+    // Symlinked skill folders (how npx skills connects agents) must scan like real ones
+    let linked = try #require(result.skills.first { $0.folderName == "shared-skill" })
+    #expect(linked.source == .personal) // scanned where Claude Code sees it
 
     let good = try #require(result.skills.first { $0.folderName == "good-skill" })
     #expect(good.displayName == "good-skill")
@@ -727,11 +792,15 @@ public enum SkillScanner {
         let fm = FileManager.default
         var result = ScanResult()
         guard let entries = try? fm.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
+            at: directory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
         ) else { return result }
 
         for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            guard (try? entry.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
+            // fileExists(atPath:isDirectory:) follows symlinks — symlinked skill
+            // folders (how installers connect agents) must scan like real ones.
+            var isDirectory: ObjCBool = false
+            guard fm.fileExists(atPath: entry.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else { continue }
             let skillFile = entry.appending(path: "SKILL.md")
             guard fm.fileExists(atPath: skillFile.path) else {
                 result.issues.append(ParseIssue(location: entry, detail: "No SKILL.md inside this folder"))
@@ -888,6 +957,8 @@ import Testing
 
     let demo = try #require(result.plugins.first { $0.pluginID == "demo-plugin@test-market" })
     #expect(demo.isEnabled == true)
+    #expect(demo.summary == "Demo plugin for tests")            // from .claude-plugin/plugin.json
+    #expect(demo.provenance == "GitHub: test-org/test-market")  // from known_marketplaces.json
     #expect(demo.skills.count == 1)
     #expect(demo.skills[0].folderName == "bundled-skill")
     #expect(demo.skills[0].modelInvocable == false) // disable-model-invocation: true
@@ -896,6 +967,7 @@ import Testing
     #expect(demo.commands[0].name == "do-thing")
     #expect(demo.commands[0].invocation == "/demo-plugin:do-thing")
     #expect(demo.commands[0].summary?.contains("demo thing") == true)
+    #expect(demo.commands[0].argumentHint == "<target>")
 
     let disabled = try #require(result.plugins.first { $0.pluginID == "disabled-plugin@test-market" })
     #expect(disabled.isEnabled == false)
@@ -934,11 +1006,13 @@ public struct PluginCommand: Identifiable, Sendable, Hashable {
     public var id: String { invocation }
     public let name: String
     public let summary: String?
+    public let argumentHint: String?
     public let invocation: String   // e.g. "/demo-plugin:do-thing"
 
-    public init(name: String, summary: String?, invocation: String) {
+    public init(name: String, summary: String?, argumentHint: String?, invocation: String) {
         self.name = name
         self.summary = summary
+        self.argumentHint = argumentHint
         self.invocation = invocation
     }
 }
@@ -948,6 +1022,8 @@ public struct Plugin: Identifiable, Sendable, Hashable {
     public let pluginID: String         // "name@marketplace"
     public let name: String
     public let marketplace: String
+    public let summary: String?         // description from .claude-plugin/plugin.json
+    public let provenance: String?      // human origin, e.g. "GitHub: owner/repo"
     public let version: String?
     public let contentDirectory: URL    // where the installed copy lives
     public let lastUpdated: Date?
@@ -955,12 +1031,14 @@ public struct Plugin: Identifiable, Sendable, Hashable {
     public let skills: [Skill]
     public let commands: [PluginCommand]
 
-    public init(pluginID: String, name: String, marketplace: String, version: String?,
-                contentDirectory: URL, lastUpdated: Date?, isEnabled: Bool,
-                skills: [Skill], commands: [PluginCommand]) {
+    public init(pluginID: String, name: String, marketplace: String, summary: String?,
+                provenance: String?, version: String?, contentDirectory: URL,
+                lastUpdated: Date?, isEnabled: Bool, skills: [Skill], commands: [PluginCommand]) {
         self.pluginID = pluginID
         self.name = name
         self.marketplace = marketplace
+        self.summary = summary
+        self.provenance = provenance
         self.version = version
         self.contentDirectory = contentDirectory
         self.lastUpdated = lastUpdated
@@ -1057,6 +1135,9 @@ public enum PluginRegistry {
             return result // no file at all is normal — Claude Code without plugins
         }
 
+        let provenanceByMarketplace = marketplaceProvenance(
+            knownMarketplacesFile: paths.knownMarketplacesFile)
+
         for record in records.sorted(by: { $0.pluginID < $1.pluginID }) {
             guard let contentDir = contentDirectory(for: record, paths: paths) else {
                 result.issues.append(ParseIssue(
@@ -1072,6 +1153,8 @@ public enum PluginRegistry {
                 pluginID: record.pluginID,
                 name: record.name,
                 marketplace: record.marketplace,
+                summary: pluginDescription(contentDir: contentDir),
+                provenance: provenanceByMarketplace[record.marketplace],
                 version: record.version,
                 contentDirectory: contentDir,
                 lastUpdated: record.lastUpdated,
@@ -1082,6 +1165,36 @@ public enum PluginRegistry {
                     commandsDir: contentDir.appending(path: "commands", directoryHint: .isDirectory))))
         }
         return result
+    }
+
+    /// Human-readable origin per marketplace, from known_marketplaces.json.
+    /// Lenient: missing/unreadable file just means no provenance shown.
+    private static func marketplaceProvenance(knownMarketplacesFile: URL) -> [String: String] {
+        guard let data = try? Data(contentsOf: knownMarketplacesFile),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        var result: [String: String] = [:]
+        for (name, value) in json {
+            guard let entry = value as? [String: Any],
+                  let source = entry["source"] as? [String: Any] else { continue }
+            if let repo = source["repo"] as? String {
+                result[name] = "GitHub: \(repo)"
+            } else if let url = source["url"] as? String {
+                result[name] = "Git: \(url)"
+            }
+        }
+        return result
+    }
+
+    /// One-line description from the plugin's own manifest, if present.
+    private static func pluginDescription(contentDir: URL) -> String? {
+        let manifest = contentDir.appending(path: ".claude-plugin/plugin.json")
+        guard let data = try? Data(contentsOf: manifest),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return json["description"] as? String
     }
 
     /// Prefer the cache layout (relocatable, verified format); fall back to the
@@ -1101,6 +1214,9 @@ public enum PluginRegistry {
         return nil
     }
 
+    // Top-level command files only. Some plugins nest commands in subdirectories;
+    // their invocation naming needs verification against Claude Code, so they
+    // ship in plan 2 rather than guessing here (wrong info is worse than missing).
     private static func loadCommands(pluginName: String, commandsDir: URL) -> [PluginCommand] {
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: commandsDir, includingPropertiesForKeys: nil) else { return [] }
@@ -1110,11 +1226,14 @@ public enum PluginRegistry {
             .map { file in
                 let stem = file.deletingPathExtension().lastPathComponent
                 var summary: String?
+                var argumentHint: String?
                 if let text = try? String(contentsOf: file, encoding: .utf8),
                    case .parsed(let fm, _) = FrontmatterParser.parse(text) {
                     summary = fm.description
+                    argumentHint = fm.argumentHint
                 }
-                return PluginCommand(name: stem, summary: summary, invocation: "/\(pluginName):\(stem)")
+                return PluginCommand(name: stem, summary: summary, argumentHint: argumentHint,
+                                     invocation: "/\(pluginName):\(stem)")
             }
     }
 }
@@ -1146,9 +1265,9 @@ import Foundation
 import Testing
 @testable import SkillsManagerCore
 
-private func makeSkill(folder: String, source: SkillSource,
+private func makeSkill(folder: String, displayName: String? = nil, source: SkillSource,
                        userInvocable: Bool = true, modelInvocable: Bool = true) -> Skill {
-    Skill(folderName: folder, displayName: folder, summary: nil, argumentHint: nil,
+    Skill(folderName: folder, displayName: displayName ?? folder, summary: nil, argumentHint: nil,
           userInvocable: userInvocable, modelInvocable: modelInvocable, whenToUse: nil,
           source: source, directory: URL(fileURLWithPath: "/tmp/\(folder)"), lastModified: nil)
 }
@@ -1156,6 +1275,13 @@ private func makeSkill(folder: String, source: SkillSource,
 @Test func personalSkillInvocationIsSlashName() {
     let skill = makeSkill(folder: "good-skill", source: .personal)
     #expect(Invocation.string(for: skill) == "/good-skill")
+}
+
+@Test func invocationUsesDeclaredNameNotFolderName() {
+    // The header shows displayName (frontmatter name) — the copyable command
+    // must agree with it, or the app contradicts itself.
+    let skill = makeSkill(folder: "folder-name", displayName: "actual-name", source: .personal)
+    #expect(Invocation.string(for: skill) == "/actual-name")
 }
 
 @Test func sharedSkillInvocationIsSlashName() {
@@ -1176,6 +1302,14 @@ private func makeSkill(folder: String, source: SkillSource,
     #expect(Invocation.availabilityLabel(for: makeSkill(folder: "c", source: .personal, modelInvocable: false))
         == "Only runs when you type its command — Claude won't trigger it on its own.")
 }
+
+@Test func sharedSkillLabelNeverClaimsClaudeCodeAccess() {
+    // A skill only in ~/.agents/skills is NOT visible to Claude Code (spec §4);
+    // wrong info is worse than missing info (spec §7).
+    let label = Invocation.availabilityLabel(for: makeSkill(folder: "s", source: .shared))
+    #expect(label.contains("shared skills folder"))
+    #expect(!label.contains("Claude uses it automatically"))
+}
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -1190,17 +1324,27 @@ import Foundation
 
 /// Computes what the user actually types — the heart of the cheat sheet (spec §5.2).
 public enum Invocation {
+    /// Uses displayName (the skill's declared frontmatter name, folder fallback):
+    /// agents resolve skills by declared name, and the detail header shows the
+    /// same value — the copyable command must never contradict the title above it.
     public static func string(for skill: Skill) -> String {
         switch skill.source {
         case .personal, .shared:
-            return "/\(skill.folderName)"
+            return "/\(skill.displayName)"
         case .plugin(let pluginID):
             let pluginName = pluginID.split(separator: "@", maxSplits: 1).first.map(String.init) ?? pluginID
-            return "/\(pluginName):\(skill.folderName)"
+            return "/\(pluginName):\(skill.displayName)"
         }
     }
 
     public static func availabilityLabel(for skill: Skill) -> String {
+        // A skill that still shows as .shared is NOT connected to Claude Code
+        // (connected ones are deduped into the personal list by Inventory.load).
+        // Never claim Claude Code can use it.
+        if case .shared = skill.source {
+            return "In the shared skills folder — agents that read ~/.agents/skills can use it. "
+                + "Claude Code sees it only once it's connected there."
+        }
         switch (skill.userInvocable, skill.modelInvocable) {
         case (true, true):
             return "Type the command yourself, or Claude uses it automatically when relevant."
@@ -1218,7 +1362,7 @@ public enum Invocation {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (22 tests).
+Expected: PASS (24 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1248,12 +1392,22 @@ import Testing
 
     let inventory = Inventory.load(paths: paths)
 
-    #expect(inventory.personalSkills.count == 3)
-    #expect(inventory.sharedSkills.count == 1)
-    #expect(inventory.sharedSkills[0].folderName == "shared-skill")
+    #expect(inventory.personalSkills.count == 4) // includes the symlinked shared-skill
+    #expect(inventory.sharedSkills.count == 1)   // only the unconnected one remains
+    #expect(inventory.sharedSkills[0].folderName == "shared-only-skill")
     #expect(inventory.plugins.count == 2)
     #expect(inventory.issues.count == 2) // broken-skill + empty-folder
     #expect(inventory.plugins.first { $0.pluginID == "disabled-plugin@test-market" }?.isEnabled == false)
+}
+
+@Test func connectedSharedSkillsAreNotListedTwice() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let inventory = Inventory.load(paths: ClaudePaths(home: home))
+    // shared-skill is symlinked into ~/.claude/skills: one entry, listed as personal
+    // (where Claude Code sees it) — never a confusing duplicate (spec §6.5).
+    #expect(inventory.personalSkills.contains { $0.folderName == "shared-skill" })
+    #expect(!inventory.sharedSkills.contains { $0.folderName == "shared-skill" })
 }
 
 @Test func emptyHomeLoadsEmptyInventory() {
@@ -1297,9 +1451,19 @@ public struct Inventory: Sendable {
         let personal = SkillScanner.scan(directory: paths.personalSkillsDir, source: .personal)
         let shared = SkillScanner.scan(directory: paths.sharedSkillsDir, source: .shared)
         let pluginResult = PluginRegistry.loadPlugins(paths: paths, enabledPlugins: enabled)
+
+        // A shared skill symlinked into ~/.claude/skills is the same skill —
+        // show it once, where Claude Code sees it (spec §6.5 duplicate rule).
+        let personalResolved = Set(personal.skills.map {
+            $0.directory.resolvingSymlinksInPath().path
+        })
+        let unconnectedShared = shared.skills.filter {
+            !personalResolved.contains($0.directory.resolvingSymlinksInPath().path)
+        }
+
         return Inventory(
             personalSkills: personal.skills,
-            sharedSkills: shared.skills,
+            sharedSkills: unconnectedShared,
             plugins: pluginResult.plugins,
             issues: personal.issues + shared.issues + pluginResult.issues)
     }
@@ -1309,7 +1473,7 @@ public struct Inventory: Sendable {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (24 tests).
+Expected: PASS (27 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1402,7 +1566,7 @@ public final class Debouncer: @unchecked Sendable {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (26 tests). If `separateBurstsEachFire` is flaky under load, raise its sleeps to 300 ms — never delete the test.
+Expected: PASS (29 tests). If `separateBurstsEachFire` is flaky under load, raise its sleeps to 300 ms — never delete the test.
 
 - [ ] **Step 5: Commit**
 
@@ -1510,7 +1674,7 @@ Expected: `Created project at .../SkillsManager.xcodeproj` then `** BUILD SUCCEE
 
 - [ ] **Step 6: Launch and verify**
 
-Run: `open "build/Build/Products/Debug/Skills Manager.app"`
+Run: `cd "/Users/henrykkim/Claude/Skills Manager" && open "build/Build/Products/Debug/Skills Manager.app"`
 Expected: a window opens showing the placeholder text. Quit the app.
 
 - [ ] **Step 7: Commit**
@@ -1674,37 +1838,58 @@ import CoreServices
 import Foundation
 import SkillsManagerCore
 
-/// Watches directories recursively via FSEvents; collapses event bursts
-/// through Debouncer so one plugin update triggers one reload.
+/// Watches one stable root (the home directory) via FSEvents and reloads only
+/// for events under the target paths. Watching the root — not the targets —
+/// means a target created after launch (~/.agents on a fresh machine) is still
+/// picked up, and high-churn siblings (~/.claude/projects, history) are ignored.
+///
+/// Lifetime: create once and keep for the app's life — the FSEvents context
+/// holds an unretained self, so this class must not be torn down while events
+/// may still be in flight.
 final class FileWatcher: @unchecked Sendable {
     private var stream: FSEventStreamRef?
     private let debouncer: Debouncer
     private let queue = DispatchQueue(label: "com.henrykkim.skillsmanager.fsevents")
+    private let targetPrefixes: [String]
 
-    init(directories: [URL], onChange: @escaping @Sendable () -> Void) {
+    init(root: URL, targets: [URL], onChange: @escaping @Sendable () -> Void) {
         debouncer = Debouncer(delay: 1.0, queue: .main, action: onChange)
-        let existing = directories.filter { FileManager.default.fileExists(atPath: $0.path) }
-        guard !existing.isEmpty else { return }
+        // FSEvents delivers canonical paths — resolve symlinks up front or a
+        // root like /tmp (→ /private/tmp) silently never matches.
+        let rootPath = root.resolvingSymlinksInPath().path
+        targetPrefixes = targets.map { $0.resolvingSymlinksInPath().path }
 
         var context = FSEventStreamContext(
             version: 0,
             info: Unmanaged.passUnretained(self).toOpaque(),
             retain: nil, release: nil, copyDescription: nil)
-        let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
+        let callback: FSEventStreamCallback = { _, info, _, eventPaths, _, _ in
             guard let info else { return }
-            Unmanaged<FileWatcher>.fromOpaque(info).takeUnretainedValue().debouncer.call()
+            let watcher = Unmanaged<FileWatcher>.fromOpaque(info).takeUnretainedValue()
+            guard let paths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] else { return }
+            if paths.contains(where: { watcher.isRelevant($0) }) {
+                watcher.debouncer.call()
+            }
         }
         stream = FSEventStreamCreate(
             kCFAllocatorDefault,
             callback,
             &context,
-            existing.map(\.path) as CFArray,
+            [rootPath] as CFArray,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             0.5,
-            FSEventStreamCreateFlags(kFSEventStreamCreateFlagNone))
+            FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes))
         if let stream {
             FSEventStreamSetDispatchQueue(stream, queue)
             FSEventStreamStart(stream)
+        }
+    }
+
+    /// An event is relevant if it happened under a target, or at/above one
+    /// (a parent-directory event may mean the target itself appeared).
+    private func isRelevant(_ eventPath: String) -> Bool {
+        targetPrefixes.contains { target in
+            eventPath.hasPrefix(target) || target.hasPrefix(eventPath)
         }
     }
 
@@ -1738,8 +1923,12 @@ final class InventoryStore {
     func start() {
         guard watcher == nil else { return }
         reload()
-        // ~/.claude covers skills, plugins and settings.json; ~/.agents covers shared skills.
-        watcher = FileWatcher(directories: [paths.claudeDir, paths.agentsDir]) { [weak self] in
+        // Watch the home root; react only to the §6.2 paths (skills, plugins,
+        // settings.json, ~/.agents) — not ~/.claude/projects/history churn.
+        watcher = FileWatcher(
+            root: paths.home,
+            targets: [paths.personalSkillsDir, paths.pluginsDir, paths.settingsFile, paths.agentsDir]
+        ) { [weak self] in
             Task { @MainActor in self?.reload() }
         }
     }
@@ -1806,6 +1995,11 @@ struct SkillRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
+            if let modified = skill.lastModified {
+                Text("Updated \(modified.formatted(.relative(presentation: .named)))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -1818,9 +2012,15 @@ struct PluginRow: View {
         HStack(spacing: Spacing.sm) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(plugin.name)
-                Text(pluginSubtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if let summary = plugin.summary {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Text(caption)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
             Spacer()
@@ -1829,11 +2029,20 @@ struct PluginRow: View {
         .padding(.vertical, 2)
     }
 
-    private var pluginSubtitle: String {
+    // Skills and commands are different things — never merge their counts.
+    private var caption: String {
         var parts: [String] = []
+        if let provenance = plugin.provenance { parts.append(provenance) }
         if let version = plugin.version { parts.append("v\(version)") }
-        let count = plugin.skills.count + plugin.commands.count
-        parts.append("\(count) command\(count == 1 ? "" : "s")")
+        if !plugin.skills.isEmpty {
+            parts.append("\(plugin.skills.count) skill\(plugin.skills.count == 1 ? "" : "s")")
+        }
+        if !plugin.commands.isEmpty {
+            parts.append("\(plugin.commands.count) command\(plugin.commands.count == 1 ? "" : "s")")
+        }
+        if let updated = plugin.lastUpdated {
+            parts.append("updated \(updated.formatted(.relative(presentation: .named)))")
+        }
         return parts.joined(separator: " · ")
     }
 }
@@ -1883,8 +2092,16 @@ struct LibraryView: View {
         List(selection: $selection) {
             if !filteredPlugins.isEmpty {
                 Section("Plugins") {
+                    // Expandable (spec §5.1): bundled skills are selectable rows
+                    // so each gets its full cheat sheet, not just a chip.
                     ForEach(filteredPlugins) { plugin in
-                        PluginRow(plugin: plugin).tag(LibrarySelection.plugin(plugin.id))
+                        DisclosureGroup {
+                            ForEach(plugin.skills) { skill in
+                                SkillRow(skill: skill).tag(LibrarySelection.skill(skill.id))
+                            }
+                        } label: {
+                            PluginRow(plugin: plugin).tag(LibrarySelection.plugin(plugin.id))
+                        }
                     }
                 }
             }
@@ -2001,8 +2218,8 @@ Expected: `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 5: Launch and verify against the real home**
 
-Run: `open "build/Build/Products/Debug/Skills Manager.app"`
-Expected on this machine: sidebar shows a **Plugins** section (superpowers, playground, superwhisper, paper-desktop…), **Your Skills** (agentation, agentation-self-driving, make-interfaces-feel-better, apple-design…), search filters live (try "brainstorm"), ⌘R re-scans. Quit when verified.
+Run: `cd "/Users/henrykkim/Claude/Skills Manager" && open "build/Build/Products/Debug/Skills Manager.app"`
+Expected on this machine: sidebar shows a **Plugins** section (superpowers, playground, superwhisper, paper-desktop…) with descriptions and provenance captions, each expandable to its bundled skills; **Your Skills** (agentation, make-interfaces-feel-better, plus the symlink-connected apple-design, emil-design-eng…); search filters live (try "brainstorm"); ⌘R re-scans. This step is an owner-verified checkpoint — pause for visual confirmation if executing non-interactively. Quit when verified.
 
 - [ ] **Step 6: Commit**
 
@@ -2122,6 +2339,10 @@ struct PluginDetailView: View {
                         ForEach(plugin.commands) { command in
                             VStack(alignment: .leading, spacing: Spacing.xs) {
                                 InvocationChip(invocation: command.invocation)
+                                if let hint = command.argumentHint {
+                                    LabeledContent("Arguments", value: hint)
+                                        .font(.callout)
+                                }
                                 if let summary = command.summary {
                                     Text(summary)
                                         .font(.callout)
@@ -2156,6 +2377,9 @@ struct PluginDetailView: View {
                         LabeledContent("Version", value: version)
                     }
                     LabeledContent("Marketplace", value: plugin.marketplace)
+                    if let provenance = plugin.provenance {
+                        LabeledContent("From", value: provenance)
+                    }
                     if let updated = plugin.lastUpdated {
                         LabeledContent("Last updated",
                                        value: updated.formatted(date: .abbreviated, time: .shortened))
@@ -2174,6 +2398,9 @@ struct PluginDetailView: View {
                 Text(plugin.name).font(.detailTitle)
                 KindBadge(text: "Plugin", tint: .purple)
                 StatusDot(isEnabled: plugin.isEnabled)
+            }
+            if let summary = plugin.summary {
+                Text(summary).foregroundStyle(.secondary)
             }
         }
     }
@@ -2292,8 +2519,8 @@ Expected: `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 6: Launch and verify the cheat sheet on real data**
 
-Run: `open "build/Build/Products/Debug/Skills Manager.app"`
-Expected: selecting the superpowers plugin lists its commands and bundled skills with copyable `/superpowers:…` chips; selecting a personal skill shows `/name`, availability sentence, location with working Reveal in Finder. Copy button flips to a checkmark and copies. Quit when verified.
+Run: `cd "/Users/henrykkim/Claude/Skills Manager" && open "build/Build/Products/Debug/Skills Manager.app"`
+Expected: selecting the superpowers plugin shows its description, provenance ("GitHub: anthropics/claude-plugins-official"), commands and bundled skills with copyable `/superpowers:…` chips; **expanding superpowers in the sidebar and selecting the brainstorming skill opens its full cheat sheet** (invocation, availability sentence, location); selecting a personal skill shows `/name` with working Reveal in Finder. Copy button flips to a checkmark and copies. This step is an owner-verified checkpoint — pause for visual confirmation if executing non-interactively. Quit when verified.
 
 - [ ] **Step 7: Commit**
 
@@ -2310,33 +2537,34 @@ cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat
 
 - [ ] **Step 1: Prove sandbox mode + live refresh together** (never touches the real `~/.claude`)
 
-Run:
+Use `/private/tmp` (the canonical path — `/tmp` is a symlink, and FSEvents delivers canonical paths; FileWatcher also resolves symlinks itself, so this is belt-and-braces). First create the sandbox:
+
 ```bash
-mkdir -p /tmp/skills-sandbox/.claude/skills/hello /tmp/skills-sandbox/.agents/skills
-cat > /tmp/skills-sandbox/.claude/skills/hello/SKILL.md <<'EOF'
----
-name: hello
-description: Sandbox test skill.
----
-EOF
-SKILLS_MANAGER_HOME=/tmp/skills-sandbox \
-  "/Users/henrykkim/Claude/Skills Manager/build/Build/Products/Debug/Skills Manager.app/Contents/MacOS/Skills Manager" &
+mkdir -p /private/tmp/skills-sandbox/.claude/skills/hello /private/tmp/skills-sandbox/.agents/skills
+printf -- '---\nname: hello\ndescription: Sandbox test skill.\n---\n' \
+  > /private/tmp/skills-sandbox/.claude/skills/hello/SKILL.md
 ```
 
-(Note: launch the binary directly — `open` does not pass environment variables.)
+Then launch the app binary **directly** (`open` does not pass environment variables) and **keep it running across the following commands** — when executing through an agent harness, launch it as a background/long-running process via the harness's background-execution facility rather than a bare `&` (harnesses commonly reap children when the shell call exits):
+
+```bash
+SKILLS_MANAGER_HOME=/private/tmp/skills-sandbox \
+  "/Users/henrykkim/Claude/Skills Manager/build/Build/Products/Debug/Skills Manager.app/Contents/MacOS/Skills Manager"
+```
 
 Expected: the app shows ONLY the sandbox content ("hello" under Your Skills) — none of the real plugins. **Live refresh check:** with the app still open, run:
 
 ```bash
-mkdir -p /tmp/skills-sandbox/.claude/skills/second
-printf -- '---\nname: second\ndescription: Appears without a restart.\n---\n' > /tmp/skills-sandbox/.claude/skills/second/SKILL.md
+mkdir -p /private/tmp/skills-sandbox/.claude/skills/second
+printf -- '---\nname: second\ndescription: Appears without a restart.\n---\n' \
+  > /private/tmp/skills-sandbox/.claude/skills/second/SKILL.md
 ```
 
-Expected: within ~2 seconds "second" appears in the sidebar without pressing anything. Quit the app, then `rm -rf /tmp/skills-sandbox`.
+Expected: within ~2 seconds "second" appears in the sidebar without pressing anything. Both expectations are **owner-verified checkpoints** — a non-GUI executor must pause here for human confirmation rather than assuming success. Quit the app, then `rm -rf /private/tmp/skills-sandbox`.
 
-- [ ] **Step 2: Create `README.md`**
+- [ ] **Step 2: Create `README.md`** (outer fence is four backticks so the README's own code blocks nest cleanly — the file content is everything between the four-backtick lines)
 
-```markdown
+````markdown
 # Skills Manager
 
 A native macOS app that answers: **what AI-agent skills do I have, what do I
@@ -2370,7 +2598,7 @@ Point the whole app at a fake home directory (nothing real is read):
 SKILLS_MANAGER_HOME=/path/to/fake/home \
   "build/Build/Products/Debug/Skills Manager.app/Contents/MacOS/Skills Manager"
 ```
-```
+````
 
 - [ ] **Step 3: Full verification pass**
 
@@ -2381,7 +2609,7 @@ cd "/Users/henrykkim/Claude/Skills Manager" && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
-Expected: all 26 tests PASS, `** BUILD SUCCEEDED **`.
+Expected: all 29 tests PASS, `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 4: Commit**
 
@@ -2393,11 +2621,11 @@ cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "docs
 
 ## Done means
 
-- `swift test`: 26/26 green.
-- App builds, launches, and shows the real machine's plugins, personal skills, and shared skills with live search.
-- Every skill/plugin detail shows a copyable invocation and plain-English availability.
-- Broken fixtures appear under Needs Attention with reasons — nothing vanishes.
-- Sandbox mode isolates the app completely; live refresh works without restart.
+- `swift test`: 29/29 green.
+- App builds, launches, and shows the real machine's plugins (descriptions + provenance), personal skills, and shared skills with live search; plugins expand to selectable bundled skills.
+- Every skill and plugin command shows a copyable invocation, argument hints where declared, and plain-English availability that never claims access an agent doesn't have.
+- Broken fixtures appear under Needs Attention with reasons — nothing vanishes; connected shared skills never appear twice.
+- Sandbox mode isolates the app completely; live refresh works without restart (including through symlinked paths).
 - The app made **zero writes** to any configuration directory.
 
-**Next plans:** Plan 2 — visibility map, agent detection, project skills, cloud cache (read-only), Connect. Plan 3 — per-agent toggles + Updates view. Plan 4 — the Install box.
+**Next plans:** Plan 2 — visibility map, agent detection, project skills, cloud cache (read-only), Connect; also picks up the deferred items: sanitized real-home fixture tree (spec §9), nested plugin-command directories (invocation naming needs verification first), and a retain-counted FSEvents context if watchers ever become create/destroy-dynamic. Plan 3 — per-agent toggles + Updates view. Plan 4 — the Install box.
