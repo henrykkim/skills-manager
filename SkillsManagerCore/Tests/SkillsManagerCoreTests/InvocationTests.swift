@@ -14,11 +14,12 @@ private func makeSkill(folder: String, displayName: String? = nil, source: Skill
     #expect(Invocation.string(for: skill) == "/good-skill")
 }
 
-@Test func invocationUsesDeclaredNameNotFolderName() {
-    // The header shows displayName (frontmatter name) — the copyable command
-    // must agree with it, or the app contradicts itself.
+@Test func invocationUsesFolderNameNotDeclaredName() {
+    // Ground truth (Claude Code docs, "How a skill gets its command name"):
+    // the typed command comes from the DIRECTORY name; frontmatter `name` is a
+    // display label only. displayName stays for headers — never for commands.
     let skill = makeSkill(folder: "folder-name", displayName: "actual-name", source: .personal)
-    #expect(Invocation.string(for: skill) == "/actual-name")
+    #expect(Invocation.string(for: skill) == "/folder-name")
 }
 
 @Test func sharedSkillInvocationIsSlashName() {
