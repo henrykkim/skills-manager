@@ -32,7 +32,7 @@ public enum FrontmatterParser {
     public static func parse(_ text: String) -> FrontmatterResult {
         let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
         let lines = normalized.components(separatedBy: "\n")
-        guard lines.first == "---" else { return .missing(body: text) }
+        guard lines.first == "---" else { return .missing(body: normalized) }
         guard let closeIndex = lines.dropFirst().firstIndex(of: "---") else {
             return .malformed(reason: "The header never closes (missing the second ---)")
         }
@@ -51,7 +51,7 @@ public enum FrontmatterParser {
             fm.whenToUse = dict["when_to_use"] as? String
             return .parsed(fm, body: body)
         } catch {
-            return .malformed(reason: "The header isn't valid YAML: \(error.localizedDescription)")
+            return .malformed(reason: "The header isn't valid YAML: \(String(describing: error))")
         }
     }
 
