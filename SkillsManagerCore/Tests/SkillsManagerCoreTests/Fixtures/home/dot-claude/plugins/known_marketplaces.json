@@ -1,0 +1,7 @@
+{
+  "test-market": {
+    "source": { "source": "github", "repo": "test-org/test-market" },
+    "installLocation": "/nonexistent/marketplaces/test-market",
+    "lastUpdated": "2026-06-01T00:00:00Z"
+  }
+}

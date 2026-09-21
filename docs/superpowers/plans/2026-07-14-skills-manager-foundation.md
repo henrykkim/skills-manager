@@ -1242,7 +1242,7 @@ public enum PluginRegistry {
 - [ ] **Step 6: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (18 tests).
+Expected: PASS (19 tests — includes the review-added SettingsReader hardening test).
 
 - [ ] **Step 7: Commit**
 
@@ -1277,11 +1277,12 @@ private func makeSkill(folder: String, displayName: String? = nil, source: Skill
     #expect(Invocation.string(for: skill) == "/good-skill")
 }
 
-@Test func invocationUsesDeclaredNameNotFolderName() {
-    // The header shows displayName (frontmatter name) — the copyable command
-    // must agree with it, or the app contradicts itself.
+@Test func invocationUsesFolderNameNotDeclaredName() {
+    // Ground truth (Claude Code docs, "How a skill gets its command name"):
+    // the typed command comes from the DIRECTORY name; frontmatter `name` is a
+    // display label only. displayName stays for headers — never for commands.
     let skill = makeSkill(folder: "folder-name", displayName: "actual-name", source: .personal)
-    #expect(Invocation.string(for: skill) == "/actual-name")
+    #expect(Invocation.string(for: skill) == "/folder-name")
 }
 
 @Test func sharedSkillInvocationIsSlashName() {
@@ -1324,16 +1325,17 @@ import Foundation
 
 /// Computes what the user actually types — the heart of the cheat sheet (spec §5.2).
 public enum Invocation {
-    /// Uses displayName (the skill's declared frontmatter name, folder fallback):
-    /// agents resolve skills by declared name, and the detail header shows the
-    /// same value — the copyable command must never contradict the title above it.
+    /// Uses folderName: per Claude Code's docs ("How a skill gets its command
+    /// name"), the typed command comes from the skill's DIRECTORY name — the
+    /// frontmatter `name` is a display label and does not change what you type.
+    /// (Exception not relevant here: a plugin-root SKILL.md; plan 2 note.)
     public static func string(for skill: Skill) -> String {
         switch skill.source {
         case .personal, .shared:
-            return "/\(skill.displayName)"
+            return "/\(skill.folderName)"
         case .plugin(let pluginID):
             let pluginName = pluginID.split(separator: "@", maxSplits: 1).first.map(String.init) ?? pluginID
-            return "/\(pluginName):\(skill.displayName)"
+            return "/\(pluginName):\(skill.folderName)"
         }
     }
 
@@ -1362,7 +1364,7 @@ public enum Invocation {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (24 tests).
+Expected: PASS (25 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1473,7 +1475,7 @@ public struct Inventory: Sendable {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (27 tests).
+Expected: PASS (28 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1566,7 +1568,7 @@ public final class Debouncer: @unchecked Sendable {
 - [ ] **Step 4: Run tests to verify pass**
 
 Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
-Expected: PASS (29 tests). If `separateBurstsEachFire` is flaky under load, raise its sleeps to 300 ms — never delete the test.
+Expected: PASS (30 tests). If `separateBurstsEachFire` is flaky under load, raise its sleeps to 300 ms — never delete the test.
 
 - [ ] **Step 5: Commit**
 
@@ -1854,10 +1856,13 @@ final class FileWatcher: @unchecked Sendable {
 
     init(root: URL, targets: [URL], onChange: @escaping @Sendable () -> Void) {
         debouncer = Debouncer(delay: 1.0, queue: .main, action: onChange)
-        // FSEvents delivers canonical paths — resolve symlinks up front or a
-        // root like /tmp (→ /private/tmp) silently never matches.
-        let rootPath = root.resolvingSymlinksInPath().path
-        targetPrefixes = targets.map { $0.resolvingSymlinksInPath().path }
+        // FSEvents delivers canonical paths (realpath-style, e.g. /private/tmp/…).
+        // Foundation's resolvingSymlinksInPath() is NOT canonical — it strips
+        // /private, so /tmp-rooted watches would silently never match. Use
+        // realpath(3) via canonicalize(); nonexistent targets canonicalize
+        // their nearest existing ancestor.
+        let rootPath = Self.canonicalize(root)
+        targetPrefixes = targets.map(Self.canonicalize)
 
         var context = FSEventStreamContext(
             version: 0,
@@ -1883,6 +1888,18 @@ final class FileWatcher: @unchecked Sendable {
             FSEventStreamSetDispatchQueue(stream, queue)
             FSEventStreamStart(stream)
         }
+    }
+
+    /// True canonical path via realpath(3) — resolvingSymlinksInPath() strips
+    /// /private (making /tmp roots never match FSEvents' canonical output).
+    private static func canonicalize(_ url: URL) -> String {
+        if let rp = realpath(url.path, nil) {
+            defer { free(rp) }
+            return String(cString: rp)
+        }
+        let parent = url.deletingLastPathComponent()
+        guard parent.path != url.path else { return url.path }
+        return canonicalize(parent) + "/" + url.lastPathComponent
     }
 
     /// An event is relevant if it happened under a target, or at/above one
@@ -2609,7 +2626,7 @@ cd "/Users/henrykkim/Claude/Skills Manager" && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
-Expected: all 29 tests PASS, `** BUILD SUCCEEDED **`.
+Expected: all 30 tests PASS, `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 4: Commit**
 
@@ -2621,7 +2638,7 @@ cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "docs
 
 ## Done means
 
-- `swift test`: 29/29 green.
+- `swift test`: 30/30 green.
 - App builds, launches, and shows the real machine's plugins (descriptions + provenance), personal skills, and shared skills with live search; plugins expand to selectable bundled skills.
 - Every skill and plugin command shows a copyable invocation, argument hints where declared, and plain-English availability that never claims access an agent doesn't have.
 - Broken fixtures appear under Needs Attention with reasons — nothing vanishes; connected shared skills never appear twice.
