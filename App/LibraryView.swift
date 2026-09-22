@@ -98,7 +98,7 @@ struct LibraryView: View {
         switch selection {
         case .skill(let id):
             if let skill = allSkills.first(where: { $0.id == id }) {
-                SkillDetailView(skill: skill)
+                SkillDetailView(skill: skill, parentPlugin: parentPlugin(of: skill))
             } else {
                 missingSelection
             }
@@ -123,6 +123,11 @@ struct LibraryView: View {
         store.inventory.personalSkills
             + store.inventory.sharedSkills
             + store.inventory.plugins.flatMap(\.skills)
+    }
+
+    private func parentPlugin(of skill: Skill) -> Plugin? {
+        guard case .plugin(let pluginID) = skill.source else { return nil }
+        return store.inventory.plugins.first { $0.pluginID == pluginID }
     }
 
     private var missingSelection: some View {
