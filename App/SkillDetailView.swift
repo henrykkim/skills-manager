@@ -4,6 +4,7 @@ import SkillsManagerCore
 
 struct SkillDetailView: View {
     let skill: Skill
+    let parentPlugin: Plugin?
 
     var body: some View {
         ScrollView {
@@ -40,11 +41,12 @@ struct SkillDetailView: View {
                             .buttonStyle(.link)
                         }
                     }
-                    if let modified = skill.lastModified {
-                        LabeledContent("Last modified",
-                                       value: modified.formatted(date: .abbreviated, time: .shortened))
+                    LabeledContent("Source") { sourceView }
+                    if let installed = skill.installedAt ?? parentPlugin?.installedAt {
+                        LabeledContent("Installed") {
+                            Text(installed.formatted(date: .abbreviated, time: .omitted)).font(.metadata)
+                        }
                     }
-                    LabeledContent("Source", value: sourceLabel)
                 }
             }
             .padding(Spacing.xl)
@@ -55,12 +57,15 @@ struct SkillDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.sm) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                 Text(skill.displayName).font(.detailTitle)
                 switch skill.source {
                 case .personal: KindBadge(text: "Skill", tint: .blue)
                 case .shared: KindBadge(text: "Shared", tint: .teal)
                 case .plugin: KindBadge(text: "Plugin Skill", tint: .purple)
+                }
+                if let updated = skill.updatedAt ?? skill.lastModified {
+                    UpdatedLabel(date: updated)
                 }
             }
             if let summary = skill.summary {
@@ -69,11 +74,26 @@ struct SkillDetailView: View {
         }
     }
 
-    private var sourceLabel: String {
+    /// A link when we know where the skill came from; honest plain text otherwise.
+    @ViewBuilder
+    private var sourceView: some View {
         switch skill.source {
-        case .personal: "Your skills folder (~/.claude/skills)"
-        case .shared: "Shared skills folder (~/.agents/skills)"
-        case .plugin(let pluginID): "Plugin \(pluginID)"
+        case .personal, .shared:
+            if let url = skill.sourceURL {
+                SourceLink(label: skill.sourceLabel ?? url.absoluteString, url: url)
+            } else if case .personal = skill.source {
+                Text("Your skills folder (~/.claude/skills)")
+            } else {
+                Text("Shared skills folder (~/.agents/skills)")
+            }
+        case .plugin:
+            if let plugin = parentPlugin, let url = plugin.homepageURL ?? plugin.marketplaceURL {
+                SourceLink(label: "Plugin \(plugin.name)", url: url)
+            } else if let plugin = parentPlugin {
+                Text("Plugin \(plugin.name)")
+            } else {
+                Text("Plugin")
+            }
         }
     }
 }

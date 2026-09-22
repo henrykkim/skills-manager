@@ -22,14 +22,20 @@ enum FixtureHome {
             // Hidden files don't reliably survive SPM's resource copying, and
             // symlinks can't be bundled at all — write both here instead.
             try writePluginManifest(home: dest, marketplace: "test-market", plugin: "demo-plugin",
-                                    version: "1.2.0", description: "Demo plugin for tests")
+                                    version: "1.2.0", description: "Demo plugin for tests",
+                                    extra: #"""
+                                    , "author": { "name": "Test Author", "url": "https://example.com/author" },
+                                      "homepage": "https://example.com/demo",
+                                      "repository": "https://github.com/test-org/demo-plugin.git"
+                                    """#)
             try writePluginManifest(home: dest, marketplace: "test-market", plugin: "disabled-plugin",
-                                    version: "0.1.0", description: "Disabled in settings")
+                                    version: "0.1.0", description: "Disabled in settings", extra: "")
             // The shape `npx skills add` creates: canonical copy in ~/.agents/skills,
             // symlinked into ~/.claude/skills so Claude Code sees it.
             try fm.createSymbolicLink(
                 at: dest.appending(path: ".claude/skills/shared-skill"),
                 withDestinationURL: dest.appending(path: ".agents/skills/shared-skill"))
+            try writeSkillLock(home: dest)
         } catch {
             // Don't leak a half-built fixture the caller never got a URL for.
             try? fm.removeItem(at: dest)
@@ -47,11 +53,32 @@ enum FixtureHome {
     }
 
     private static func writePluginManifest(home: URL, marketplace: String, plugin: String,
-                                            version: String, description: String) throws {
+                                            version: String, description: String, extra: String) throws {
         let dir = home.appending(
             path: ".claude/plugins/cache/\(marketplace)/\(plugin)/\(version)/.claude-plugin")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let json = #"{ "name": "\#(plugin)", "version": "\#(version)", "description": "\#(description)" }"#
+        let json = #"{ "name": "\#(plugin)", "version": "\#(version)", "description": "\#(description)"\#(extra) }"#
         try json.write(to: dir.appending(path: "plugin.json"), atomically: true, encoding: .utf8)
+    }
+
+    /// The record `npx skills add` leaves behind. Only shared-skill is listed —
+    /// shared-only-skill deliberately has no record so tests cover both cases.
+    private static func writeSkillLock(home: URL) throws {
+        let json = #"""
+        { "version": 1,
+          "skills": {
+            "shared-skill": {
+              "source": "test-org/shared-skill",
+              "sourceType": "github",
+              "sourceUrl": "https://github.com/test-org/shared-skill.git",
+              "skillPath": "SKILL.md",
+              "installedAt": "2026-05-01T00:00:00Z",
+              "updatedAt": "2026-06-01T00:00:00Z"
+            }
+          },
+          "dismissed": [], "lastSelectedAgents": [] }
+        """#
+        try json.write(to: home.appending(path: ".agents/.skill-lock.json"),
+                       atomically: true, encoding: .utf8)
     }
 }

@@ -24,4 +24,6 @@ public struct ClaudePaths: Sendable {
     public var pluginsCacheDir: URL { pluginsDir.appending(path: "cache", directoryHint: .isDirectory) }
     public var agentsDir: URL { home.appending(path: ".agents", directoryHint: .isDirectory) }
     public var sharedSkillsDir: URL { agentsDir.appending(path: "skills", directoryHint: .isDirectory) }
+    /// Written by the `npx skills` installer; records where each shared skill came from.
+    public var agentsLockFile: URL { agentsDir.appending(path: ".skill-lock.json") }
 }

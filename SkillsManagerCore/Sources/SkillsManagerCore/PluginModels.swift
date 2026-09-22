@@ -28,10 +28,18 @@ public struct Plugin: Identifiable, Sendable, Hashable {
     public let isEnabled: Bool
     public let skills: [Skill]
     public let commands: [PluginCommand]
+    // Provenance for the detail view. All optional — manifests vary wildly.
+    public let authorName: String?
+    public let authorURL: URL?
+    public let homepageURL: URL?        // manifest homepage, else repository
+    public let marketplaceURL: URL?     // derived from known_marketplaces.json
+    public let installedAt: Date?
 
     public init(pluginID: String, name: String, marketplace: String, summary: String?,
                 provenance: String?, version: String?, contentDirectory: URL,
-                lastUpdated: Date?, isEnabled: Bool, skills: [Skill], commands: [PluginCommand]) {
+                lastUpdated: Date?, isEnabled: Bool, skills: [Skill], commands: [PluginCommand],
+                authorName: String? = nil, authorURL: URL? = nil, homepageURL: URL? = nil,
+                marketplaceURL: URL? = nil, installedAt: Date? = nil) {
         self.pluginID = pluginID
         self.name = name
         self.marketplace = marketplace
@@ -43,5 +51,10 @@ public struct Plugin: Identifiable, Sendable, Hashable {
         self.isEnabled = isEnabled
         self.skills = skills
         self.commands = commands
+        self.authorName = authorName
+        self.authorURL = authorURL
+        self.homepageURL = homepageURL
+        self.marketplaceURL = marketplaceURL
+        self.installedAt = installedAt
     }
 }

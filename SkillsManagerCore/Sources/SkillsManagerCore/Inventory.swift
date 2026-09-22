@@ -18,8 +18,9 @@ public struct Inventory: Sendable {
 
     public static func load(paths: ClaudePaths) -> Inventory {
         let enabled = SettingsReader.enabledPlugins(settingsFile: paths.settingsFile)
-        let personal = SkillScanner.scan(directory: paths.personalSkillsDir, source: .personal)
-        let shared = SkillScanner.scan(directory: paths.sharedSkillsDir, source: .shared)
+        let lock = SkillLock.load(file: paths.agentsLockFile)
+        let personal = SkillScanner.scan(directory: paths.personalSkillsDir, source: .personal, lock: lock, lockScope: paths.sharedSkillsDir)
+        let shared = SkillScanner.scan(directory: paths.sharedSkillsDir, source: .shared, lock: lock, lockScope: paths.sharedSkillsDir)
         let pluginResult = PluginRegistry.loadPlugins(paths: paths, enabledPlugins: enabled)
 
         // A shared skill symlinked into ~/.claude/skills is the same skill —

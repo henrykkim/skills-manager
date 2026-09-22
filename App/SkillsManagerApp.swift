@@ -11,5 +11,13 @@ struct SkillsManagerApp: App {
                 .task { store.start() }
                 .frame(minWidth: 760, minHeight: 480)
         }
+        // Reload is automatic (FSEvents); ⌘R is a manual fallback.
+        .commands {
+            CommandGroup(after: .toolbar) {
+                Button("Refresh") { store.reload() }
+                    .keyboardShortcut("r")
+                    .disabled(store.isLoading)
+            }
+        }
     }
 }
