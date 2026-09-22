@@ -18,6 +18,8 @@ extension Font {
     static let invocation = Font.system(.callout, design: .monospaced).weight(.medium)
     static let detailTitle = Font.title2.weight(.semibold)
     static let cardLabel = Font.caption.weight(.semibold)
+    /// Dates, versions, counts — tabular so columns of metadata align.
+    static let metadata = Font.caption.monospacedDigit()
 }
 
 /// Small capsule naming an item's kind ("Plugin", "Skill", "Shared").
@@ -111,5 +113,56 @@ struct SectionCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.lg)
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+/// "Updated Sep 11, 2026" — muted, tabular, with the full timestamp on hover.
+struct UpdatedLabel: View {
+    let date: Date
+
+    var body: some View {
+        Text("Updated \(date.formatted(date: .abbreviated, time: .omitted))")
+            .font(.metadata)
+            .foregroundStyle(.tertiary)
+            .help(date.formatted(date: .long, time: .shortened))
+            .accessibilityLabel("Updated \(date.formatted(date: .long, time: .omitted))")
+    }
+}
+
+/// An outbound link. The arrow tells the user it opens their browser; the
+/// tooltip shows exactly where. Whole label is the hit area.
+struct SourceLink: View {
+    let label: String
+    let url: URL
+    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                Text(label)
+                    .underline(hovering, color: .accentColor)
+                Image(systemName: "arrow.up.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .foregroundStyle(Color.accentColor)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering in
+            if reduceMotion {
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) { hovering = isHovering }
+            } else {
+                withAnimation(.smooth(duration: 0.15)) { hovering = isHovering }
+            }
+        }
+        .help(url.absoluteString)
+        .accessibilityHint("Opens \(url.host() ?? "a web page") in your browser")
+        .accessibilityAddTraits(.isLink)
     }
 }
