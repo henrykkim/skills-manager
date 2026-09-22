@@ -37,6 +37,16 @@ SKILLS_MANAGER_HOME=/path/to/fake/home \
 The library reloads itself whenever a skill or plugin folder changes. If it
 ever looks stale, press ⌘R to re-scan by hand.
 
+
+## Installing
+
+Click **+** in the toolbar (or press ⌘N) and paste a GitHub link, a skills.sh
+link, or the install command a README shows. The app checks what it is, shows
+you the skills it will add, and installs into Claude Code with one click.
+Skills are installed with [`npx skills`](https://skills.sh) and plugins with
+`claude plugin`, exactly as you would in a terminal — nothing is hidden.
+Requires Node.js for skills.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
