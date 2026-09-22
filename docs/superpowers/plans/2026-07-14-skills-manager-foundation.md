@@ -11,7 +11,7 @@
 **Scope:** This is spec phase 1 (read-only Library + Skill Detail cheat sheet) of `docs/superpowers/specs/2026-07-14-skills-manager-design.md`, covering personal skills (`~/.claude/skills`), shared-standard skills (`~/.agents/skills`), and Claude Code plugins (registry, bundled skills, commands). Later plans add: visibility map + agent detection + Connect (plan 2), per-agent toggles + Updates view (plan 3), Install box (plan 4). Project skills and the claude.ai cloud cache arrive with plan 2's agent detection. In this plan the app **never writes** to any config location — read-only by design.
 
 **Execution notes:**
-- The repo path contains a space (`/Users/henrykkim/Claude/Skills Manager`) — always quote paths in shell commands.
+- The repo path may contain a space — always quote paths in shell commands. Commands below run from the repo root.
 - First `swift test` run needs the network once (SPM fetches Yams).
 - Before starting any UI task (Task 11 onward), invoke the `make-interfaces-feel-better` skill and keep it applied through all view work — the owner's bar is "award-winning" native Mac design: generous spacing, correct materials, restrained color, monospaced invocations, subtle motion.
 - Sandbox mode: every reader takes paths from `ClaudePaths`; launching the app with env var `SKILLS_MANAGER_HOME=/some/fixture/home` points the entire app at a fake home. Development/testing must never depend on mutating the real `~/.claude`.
@@ -139,13 +139,13 @@ import Testing
 
 - [ ] **Step 6: Run the tests**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: Yams resolves (network fetch on first run), build succeeds, `1 test passed`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: scaffold SkillsManagerCore package with smoke test"
+git add -A && git commit -m "feat: scaffold SkillsManagerCore package with smoke test"
 ```
 
 ---
@@ -343,7 +343,7 @@ import Testing
 
 - [ ] **Step 3: Run to verify it fails**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'FixtureHome' in scope`.
 
 - [ ] **Step 4: Implement the helper** at `SkillsManagerCore/Tests/SkillsManagerCoreTests/FixtureHome.swift`
@@ -398,13 +398,13 @@ enum FixtureHome {
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (2 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "test: add fixture home tree and loader helper"
+git add -A && git commit -m "test: add fixture home tree and loader helper"
 ```
 
 ---
@@ -445,7 +445,7 @@ import Testing
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'ClaudePaths' in scope`.
 
 - [ ] **Step 3: Implement**
@@ -482,13 +482,13 @@ public struct ClaudePaths: Sendable {
 
 - [ ] **Step 4: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (4 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: ClaudePaths with injectable home and sandbox env override"
+git add -A && git commit -m "feat: ClaudePaths with injectable home and sandbox env override"
 ```
 
 ---
@@ -566,7 +566,7 @@ import Testing
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'FrontmatterParser' in scope`.
 
 - [ ] **Step 3: Implement**
@@ -642,13 +642,13 @@ public enum FrontmatterParser {
 
 - [ ] **Step 4: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (10 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: lenient SKILL.md frontmatter parser"
+git add -A && git commit -m "feat: lenient SKILL.md frontmatter parser"
 ```
 
 ---
@@ -712,7 +712,7 @@ import Testing
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'SkillScanner' in scope`.
 
 - [ ] **Step 3: Implement the models** at `SkillsManagerCore/Sources/SkillsManagerCore/Models.swift`
@@ -838,13 +838,13 @@ public enum SkillScanner {
 
 - [ ] **Step 5: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (12 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: Skill model and directory scanner with needs-attention issues"
+git add -A && git commit -m "feat: Skill model and directory scanner with needs-attention issues"
 ```
 
 ---
@@ -882,7 +882,7 @@ import Testing
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'SettingsReader' in scope`.
 
 - [ ] **Step 3: Implement**
@@ -906,13 +906,13 @@ public enum SettingsReader {
 
 - [ ] **Step 4: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (14 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: read enabledPlugins from settings.json"
+git add -A && git commit -m "feat: read enabledPlugins from settings.json"
 ```
 
 ---
@@ -994,7 +994,7 @@ import Testing
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'PluginRegistry' in scope`.
 
 - [ ] **Step 3: Implement the models** at `SkillsManagerCore/Sources/SkillsManagerCore/PluginModels.swift`
@@ -1241,13 +1241,13 @@ public enum PluginRegistry {
 
 - [ ] **Step 6: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (19 tests — includes the review-added SettingsReader hardening test).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: plugin registry reader with cache-first content resolution"
+git add -A && git commit -m "feat: plugin registry reader with cache-first content resolution"
 ```
 
 ---
@@ -1315,7 +1315,7 @@ private func makeSkill(folder: String, displayName: String? = nil, source: Skill
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'Invocation' in scope`.
 
 - [ ] **Step 3: Implement**
@@ -1363,13 +1363,13 @@ public enum Invocation {
 
 - [ ] **Step 4: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (25 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: invocation strings and plain-English availability labels"
+git add -A && git commit -m "feat: invocation strings and plain-English availability labels"
 ```
 
 ---
@@ -1424,7 +1424,7 @@ import Testing
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'Inventory' in scope`.
 
 - [ ] **Step 3: Implement**
@@ -1474,13 +1474,13 @@ public struct Inventory: Sendable {
 
 - [ ] **Step 4: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (28 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: Inventory aggregate loading all sources in one pass"
+git add -A && git commit -m "feat: Inventory aggregate loading all sources in one pass"
 ```
 
 ---
@@ -1530,7 +1530,7 @@ private final class Counter: @unchecked Sendable {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: BUILD FAILURE — `cannot find 'Debouncer' in scope`.
 
 - [ ] **Step 3: Implement**
@@ -1567,13 +1567,13 @@ public final class Debouncer: @unchecked Sendable {
 
 - [ ] **Step 4: Run tests to verify pass**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test`
+Run: `cd SkillsManagerCore && swift test`
 Expected: PASS (30 tests). If `separateBurstsEachFire` is flaky under load, raise its sleeps to 300 ms — never delete the test.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: thread-safe debouncer for filesystem event bursts"
+git add -A && git commit -m "feat: thread-safe debouncer for filesystem event bursts"
 ```
 
 ---
@@ -1668,7 +1668,7 @@ struct SkillsManagerApp: App {
 
 Run:
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && xcodegen generate && \
+xcodegen generate && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
@@ -1676,13 +1676,13 @@ Expected: `Created project at .../SkillsManager.xcodeproj` then `** BUILD SUCCEE
 
 - [ ] **Step 6: Launch and verify**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager" && open "build/Build/Products/Debug/Skills Manager.app"`
+Run: `open "build/Build/Products/Debug/Skills Manager.app"`
 Expected: a window opens showing the placeholder text. Quit the app.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: XcodeGen app scaffold building and launching"
+git add -A && git commit -m "feat: XcodeGen app scaffold building and launching"
 ```
 
 ---
@@ -1813,7 +1813,7 @@ struct SectionCard<Content: View>: View {
 
 Run:
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && xcodegen generate && \
+xcodegen generate && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
@@ -1822,7 +1822,7 @@ Expected: `** BUILD SUCCEEDED **`.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: design system — spacing, type, badge, status dot, invocation chip, card"
+git add -A && git commit -m "feat: design system — spacing, type, badge, status dot, invocation chip, card"
 ```
 
 ---
@@ -1973,7 +1973,7 @@ final class InventoryStore {
 
 Run:
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && xcodegen generate && \
+xcodegen generate && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
@@ -1982,7 +1982,7 @@ Expected: `** BUILD SUCCEEDED **`.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: observable inventory store with FSEvents live reload"
+git add -A && git commit -m "feat: observable inventory store with FSEvents live reload"
 ```
 
 ---
@@ -2227,7 +2227,7 @@ struct SkillsManagerApp: App {
 
 Run:
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && xcodegen generate && \
+xcodegen generate && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
@@ -2235,13 +2235,13 @@ Expected: `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 5: Launch and verify against the real home**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager" && open "build/Build/Products/Debug/Skills Manager.app"`
+Run: `open "build/Build/Products/Debug/Skills Manager.app"`
 Expected on this machine: sidebar shows a **Plugins** section (superpowers, playground, superwhisper, paper-desktop…) with descriptions and provenance captions, each expandable to its bundled skills; **Your Skills** (agentation, make-interfaces-feel-better, plus the symlink-connected apple-design, emil-design-eng…); search filters live (try "brainstorm"); ⌘R re-scans. This step is an owner-verified checkpoint — pause for visual confirmation if executing non-interactively. Quit when verified.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: library sidebar with sections, live search and refresh"
+git add -A && git commit -m "feat: library sidebar with sections, live search and refresh"
 ```
 
 ---
@@ -2528,7 +2528,7 @@ with:
 
 Run:
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && xcodegen generate && \
+xcodegen generate && \
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
@@ -2536,13 +2536,13 @@ Expected: `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 6: Launch and verify the cheat sheet on real data**
 
-Run: `cd "/Users/henrykkim/Claude/Skills Manager" && open "build/Build/Products/Debug/Skills Manager.app"`
+Run: `open "build/Build/Products/Debug/Skills Manager.app"`
 Expected: selecting the superpowers plugin shows its description, provenance ("GitHub: anthropics/claude-plugins-official"), commands and bundled skills with copyable `/superpowers:…` chips; **expanding superpowers in the sidebar and selecting the brainstorming skill opens its full cheat sheet** (invocation, availability sentence, location); selecting a personal skill shows `/name` with working Reveal in Finder. Copy button flips to a checkmark and copies. This step is an owner-verified checkpoint — pause for visual confirmation if executing non-interactively. Quit when verified.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "feat: skill, plugin and needs-attention detail views with copyable cheat sheet"
+git add -A && git commit -m "feat: skill, plugin and needs-attention detail views with copyable cheat sheet"
 ```
 
 ---
@@ -2566,7 +2566,7 @@ Then launch the app binary **directly** (`open` does not pass environment variab
 
 ```bash
 SKILLS_MANAGER_HOME=/private/tmp/skills-sandbox \
-  "/Users/henrykkim/Claude/Skills Manager/build/Build/Products/Debug/Skills Manager.app/Contents/MacOS/Skills Manager"
+  "build/Build/Products/Debug/Skills Manager.app/Contents/MacOS/Skills Manager"
 ```
 
 Expected: the app shows ONLY the sandbox content ("hello" under Your Skills) — none of the real plugins. **Live refresh check:** with the app still open, run:
@@ -2621,8 +2621,8 @@ SKILLS_MANAGER_HOME=/path/to/fake/home \
 
 Run:
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager/SkillsManagerCore" && swift test && \
-cd "/Users/henrykkim/Claude/Skills Manager" && \
+cd SkillsManagerCore && swift test && \
+\
 xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
   -configuration Debug -derivedDataPath build build
 ```
@@ -2631,7 +2631,7 @@ Expected: all 30 tests PASS, `** BUILD SUCCEEDED **`.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "/Users/henrykkim/Claude/Skills Manager" && git add -A && git commit -m "docs: README with build, test and sandbox instructions"
+git add -A && git commit -m "docs: README with build, test and sandbox instructions"
 ```
 
 ---

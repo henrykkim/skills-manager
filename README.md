@@ -36,3 +36,7 @@ SKILLS_MANAGER_HOME=/path/to/fake/home \
 
 The library reloads itself whenever a skill or plugin folder changes. If it
 ever looks stale, press ⌘R to re-scan by hand.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
