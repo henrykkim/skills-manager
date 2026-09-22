@@ -30,6 +30,7 @@ enum FixtureHome {
             try fm.createSymbolicLink(
                 at: dest.appending(path: ".claude/skills/shared-skill"),
                 withDestinationURL: dest.appending(path: ".agents/skills/shared-skill"))
+            try writeSkillLock(home: dest)
         } catch {
             // Don't leak a half-built fixture the caller never got a URL for.
             try? fm.removeItem(at: dest)
@@ -53,5 +54,26 @@ enum FixtureHome {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let json = #"{ "name": "\#(plugin)", "version": "\#(version)", "description": "\#(description)" }"#
         try json.write(to: dir.appending(path: "plugin.json"), atomically: true, encoding: .utf8)
+    }
+
+    /// The record `npx skills add` leaves behind. Only shared-skill is listed —
+    /// shared-only-skill deliberately has no record so tests cover both cases.
+    private static func writeSkillLock(home: URL) throws {
+        let json = #"""
+        { "version": 1,
+          "skills": {
+            "shared-skill": {
+              "source": "test-org/shared-skill",
+              "sourceType": "github",
+              "sourceUrl": "https://github.com/test-org/shared-skill.git",
+              "skillPath": "SKILL.md",
+              "installedAt": "2026-05-01T00:00:00Z",
+              "updatedAt": "2026-06-01T00:00:00Z"
+            }
+          },
+          "dismissed": [], "lastSelectedAgents": [] }
+        """#
+        try json.write(to: home.appending(path: ".agents/.skill-lock.json"),
+                       atomically: true, encoding: .utf8)
     }
 }

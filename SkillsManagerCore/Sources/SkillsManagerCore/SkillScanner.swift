@@ -13,7 +13,7 @@ public struct ScanResult: Sendable {
 public enum SkillScanner {
     /// Scans a directory whose children are skill folders (each holding SKILL.md).
     /// A missing directory is normal (not every machine has every source) — empty result.
-    public static func scan(directory: URL, source: SkillSource) -> ScanResult {
+    public static func scan(directory: URL, source: SkillSource, lock: SkillLock = .empty) -> ScanResult {
         let fm = FileManager.default
         var result = ScanResult()
         guard let entries = try? fm.contentsOfDirectory(
@@ -43,6 +43,7 @@ public enum SkillScanner {
             case .parsed(let fm2, _):
                 let modified = (try? skillFile.resourceValues(forKeys: [.contentModificationDateKey]))?
                     .contentModificationDate
+                let lockEntry = lock[entry.lastPathComponent]
                 result.skills.append(Skill(
                     folderName: entry.lastPathComponent,
                     displayName: fm2.name ?? entry.lastPathComponent,
@@ -53,7 +54,11 @@ public enum SkillScanner {
                     whenToUse: fm2.whenToUse,
                     source: source,
                     directory: entry,
-                    lastModified: modified))
+                    lastModified: modified,
+                    sourceURL: lockEntry?.sourceURL,
+                    sourceLabel: lockEntry?.sourceLabel,
+                    installedAt: lockEntry?.installedAt,
+                    updatedAt: lockEntry?.updatedAt))
             }
         }
         return result

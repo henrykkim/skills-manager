@@ -35,3 +35,32 @@ import Testing
     #expect(inventory.plugins.isEmpty)
     #expect(inventory.issues.isEmpty)
 }
+
+@Test func sharedSkillCarriesLockProvenance() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let inventory = Inventory.load(paths: ClaudePaths(home: home))
+
+    // shared-skill is symlinked into ~/.claude/skills, so it is listed as personal —
+    // and must still pick up its lock record by folder name.
+    let connected = try #require(inventory.personalSkills.first { $0.folderName == "shared-skill" })
+    #expect(connected.sourceLabel == "test-org/shared-skill")
+    #expect(connected.sourceURL == URL(string: "https://github.com/test-org/shared-skill"))
+    #expect(connected.installedAt != nil)
+    #expect(connected.updatedAt != nil)
+
+    // shared-only-skill has no lock record: fields stay nil, skill still listed.
+    let unrecorded = try #require(inventory.sharedSkills.first { $0.folderName == "shared-only-skill" })
+    #expect(unrecorded.sourceURL == nil)
+    #expect(unrecorded.updatedAt == nil)
+}
+
+@Test func plainPersonalSkillHasNoLockProvenance() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let inventory = Inventory.load(paths: ClaudePaths(home: home))
+    let good = try #require(inventory.personalSkills.first { $0.folderName == "good-skill" })
+    #expect(good.sourceURL == nil)
+    #expect(good.sourceLabel == nil)
+    #expect(good.installedAt == nil)
+}
