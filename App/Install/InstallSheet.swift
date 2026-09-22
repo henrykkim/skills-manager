@@ -73,7 +73,7 @@ struct InstallSheet: View {
             previewView(preview)
         case .installing(let step):
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                ProgressView()
+                ProgressView().progressViewStyle(.linear)
                 Text(step).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -96,9 +96,9 @@ struct InstallSheet: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                 Text(p.title).font(.headline).lineLimit(1).truncationMode(.tail)
-                KindBadge(text: p.kind == .plugin ? "Plugin" : "Skill repository", tint: p.kind == .plugin ? .purple : .blue)
+                KindBadge(text: p.kind == .plugin ? "Claude Code plugin" : "Skill repository", tint: p.kind == .plugin ? .purple : .blue)
                 if let author = p.authorName {
-                    if let url = p.authorURL { SourceLink(label: author, url: url) } else { Text(author).foregroundStyle(.secondary) }
+                    if let url = p.authorURL { SourceLink(label: author, url: url).lineLimit(1) } else { Text(author).foregroundStyle(.secondary).lineLimit(1) }
                 }
             }
             if let summary = p.summary { Text(summary).foregroundStyle(.secondary) }
