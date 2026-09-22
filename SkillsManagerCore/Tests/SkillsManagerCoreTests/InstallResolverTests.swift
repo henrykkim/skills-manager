@@ -86,6 +86,18 @@ private func stub() -> StubGitHubClient {
     #expect(dup.isInstalled); #expect(!dup.isPreselected)
 }
 
+@Test func unreadableSkillFileIsListedAsInvalidNotFatal() async throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    var s = stub()
+    s.files.removeValue(forKey: "skills/better-layout/SKILL.md")   // stub.raw throws for it
+    let p = try await InstallResolver(github: s, paths: ClaudePaths(home: home))
+        .resolve(.skillsRepo(owner: "jakubkrehel", repo: "skills", subpath: nil, onlySkills: nil))
+    let layout = try #require(p.skills.first { $0.folder == "better-layout" })
+    #expect(!layout.isValid); #expect(!layout.isPreselected)
+    #expect(p.skills.first { $0.folder == "better-ui" }?.isValid == true)
+}
+
 @Test func repoNotFoundAndNoSkillsAndRateLimit() async throws {
     let home = try FixtureHome.make()
     defer { try? FileManager.default.removeItem(at: home) }

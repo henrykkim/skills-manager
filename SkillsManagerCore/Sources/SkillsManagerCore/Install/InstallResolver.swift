@@ -38,8 +38,15 @@ public struct InstallResolver: Sendable {
         var skills: [PreviewSkill] = []
         for path in paths.prefix(Self.maxSkills) {
             let folder = path == "SKILL.md" ? repo : String(path.dropLast("/SKILL.md".count).split(separator: "/").last ?? Substring(repo))
-            let text = try await github.raw(owner: owner, repo: repo, branch: info.defaultBranch, path: path)
             let isInstalled = installed.contains(folder)
+            let text: String
+            do {
+                text = try await github.raw(owner: owner, repo: repo, branch: info.defaultBranch, path: path)
+            } catch {
+                skills.append(PreviewSkill(folder: folder, name: folder, summary: nil, body: "", invocation: "/\(folder)",
+                                           isInstalled: isInstalled, isValid: false, isPreselected: false))
+                continue
+            }
             switch FrontmatterParser.parse(text) {
             case .parsed(let fm, let body):
                 let wanted = only.map { $0.contains(folder) } ?? true

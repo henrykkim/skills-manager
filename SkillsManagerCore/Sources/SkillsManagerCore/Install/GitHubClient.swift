@@ -22,7 +22,7 @@ public struct URLSessionGitHubClient: GitHubClient {
     public init(session: URLSession = .shared) { self.session = session }
 
     public func repo(owner: String, repo: String) async throws -> GitHubRepo {
-        let json = try await getJSON("https://api.github.com/repos/\(owner)/\(repo)")
+        let json = try await getJSON("https://api.github.com/repos/\(owner)/\(repo)", notFound: .repoNotFound)
         guard let branch = json["default_branch"] as? String,
               let html = (json["html_url"] as? String).flatMap(URL.init(string:)) else {
             throw InstallError.other("Unexpected reply from GitHub.")
@@ -32,27 +32,29 @@ public struct URLSessionGitHubClient: GitHubClient {
     }
 
     public func treePaths(owner: String, repo: String, branch: String) async throws -> [String] {
-        let json = try await getJSON("https://api.github.com/repos/\(owner)/\(repo)/git/trees/\(branch)?recursive=1")
+        let json = try await getJSON("https://api.github.com/repos/\(owner)/\(repo)/git/trees/\(branch)?recursive=1",
+                                     notFound: .other("That repository's default branch couldn't be read."))
         let tree = json["tree"] as? [[String: Any]] ?? []
         return tree.compactMap { $0["path"] as? String }
     }
 
     public func raw(owner: String, repo: String, branch: String, path: String) async throws -> String {
-        let (data, _) = try await get("https://raw.githubusercontent.com/\(owner)/\(repo)/\(branch)/\(path)")
+        let (data, _) = try await get("https://raw.githubusercontent.com/\(owner)/\(repo)/\(branch)/\(path)",
+                                      notFound: .other("A skill file couldn't be downloaded."))
         return String(decoding: data, as: UTF8.self)
     }
 
     // MARK: plumbing
 
-    private func getJSON(_ url: String) async throws -> [String: Any] {
-        let (data, _) = try await get(url)
+    private func getJSON(_ url: String, notFound: InstallError) async throws -> [String: Any] {
+        let (data, _) = try await get(url, notFound: notFound)
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw InstallError.other("Unexpected reply from GitHub.")
         }
         return json
     }
 
-    private func get(_ urlString: String) async throws -> (Data, HTTPURLResponse) {
+    private func get(_ urlString: String, notFound: InstallError) async throws -> (Data, HTTPURLResponse) {
         guard let url = URL(string: urlString) else { throw InstallError.other("Bad URL.") }
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -64,7 +66,7 @@ public struct URLSessionGitHubClient: GitHubClient {
         guard let http = response as? HTTPURLResponse else { throw InstallError.network("No response.") }
         switch http.statusCode {
         case 200..<300: return (data, http)
-        case 404: throw InstallError.repoNotFound
+        case 404: throw notFound
         case 403, 429: throw InstallError.rateLimited
         default: throw InstallError.other("GitHub replied with status \(http.statusCode).")
         }
