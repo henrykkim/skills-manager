@@ -13,6 +13,10 @@ struct SkillsManagerApp: App {
         }
         // Reload is automatic (FSEvents); ⌘R is a manual fallback.
         .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Install…") { NotificationCenter.default.post(name: .showInstallSheet, object: nil) }
+                    .keyboardShortcut("n")
+            }
             CommandGroup(after: .toolbar) {
                 Button("Refresh") { store.reload() }
                     .keyboardShortcut("r")
