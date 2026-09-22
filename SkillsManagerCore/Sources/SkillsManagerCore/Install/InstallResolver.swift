@@ -42,6 +42,18 @@ public struct InstallResolver: Sendable {
             let text: String
             do {
                 text = try await github.raw(owner: owner, repo: repo, branch: info.defaultBranch, path: path)
+            } catch let error as InstallError {
+                switch error {
+                case .rateLimited, .network:
+                    // A wholesale API outage isn't a per-file formatting problem —
+                    // let it propagate so the caller shows the real cause instead
+                    // of a misleading "invalid skill" row.
+                    throw error
+                case .repoNotFound, .noSkills, .other:
+                    skills.append(PreviewSkill(folder: folder, name: folder, summary: nil, body: "", invocation: "/\(folder)",
+                                               isInstalled: isInstalled, isValid: false, isPreselected: false))
+                    continue
+                }
             } catch {
                 skills.append(PreviewSkill(folder: folder, name: folder, summary: nil, body: "", invocation: "/\(folder)",
                                            isInstalled: isInstalled, isValid: false, isPreselected: false))

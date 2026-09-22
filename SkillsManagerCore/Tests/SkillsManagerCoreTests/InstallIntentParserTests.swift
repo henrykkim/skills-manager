@@ -32,9 +32,24 @@ import Testing
         .skillsRepo(owner: "emilkowalski", repo: "skills", subpath: nil, onlySkills: ["apple-design"]))
 }
 
+@Test func cliPluginPairInsideBackticks() {
+    let text = "Run `claude plugin marketplace add obra/superpowers-marketplace` then `claude plugin install superpowers@superpowers-marketplace`."
+    #expect(InstallIntentParser.parse(text) ==
+        .plugin(name: "superpowers", marketplace: "superpowers-marketplace", marketplaceSource: "obra/superpowers-marketplace"))
+}
+
 @Test func parsesNpxSkillsAddWithGitHubURL() {
     #expect(InstallIntentParser.parse("npx skills add https://github.com/vercel-labs/agent-skills") ==
         .skillsRepo(owner: "vercel-labs", repo: "agent-skills", subpath: nil, onlySkills: nil))
+}
+
+@Test func npxSkillFlagsAfterOtherFlags() {
+    #expect(InstallIntentParser.parse("npx skills add o/r -g -y --skill apple-design") ==
+        .skillsRepo(owner: "o", repo: "r", subpath: nil, onlySkills: ["apple-design"]))
+    #expect(InstallIntentParser.parse("npx skills add o/r -a claude-code -s a,b -y") ==
+        .skillsRepo(owner: "o", repo: "r", subpath: nil, onlySkills: ["a", "b"]))
+    #expect(InstallIntentParser.parse("npx skills add o/r --skill a --skill b") ==
+        .skillsRepo(owner: "o", repo: "r", subpath: nil, onlySkills: ["a", "b"]))
 }
 
 @Test func parsesNpxInsideReadmeSentence() {

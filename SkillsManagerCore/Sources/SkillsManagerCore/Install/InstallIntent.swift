@@ -45,30 +45,42 @@ public enum InstallIntentParser {
     // MARK: shapes
 
     private static func parsePlugin(_ text: String) -> InstallIntent? {
-        // "/plugin install p@m" or "claude plugin install p@m"
-        let install = try! NSRegularExpression(pattern: #"(?:^|\s)(?:/plugin|claude\s+plugin)\s+install\s+(\#(ident))@(\#(ident))"#)
+        // "/plugin install p@m" or "claude plugin install p@m" — the leading
+        // boundary also accepts a backtick, since READMEs commonly fence
+        // these commands as `claude plugin install foo@bar`.
+        let install = try! NSRegularExpression(pattern: #"(?:^|[\s`])(?:/plugin|claude\s+plugin)\s+install\s+(\#(ident))@(\#(ident))"#)
         guard let m = install.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let name = text[m.range(at: 1)], let market = text[m.range(at: 2)] else { return nil }
-        let add = try! NSRegularExpression(pattern: #"(?:^|\s)(?:/plugin|claude\s+plugin)\s+marketplace\s+add\s+(\S+)"#)
+        let add = try! NSRegularExpression(pattern: #"(?:^|[\s`])(?:/plugin|claude\s+plugin)\s+marketplace\s+add\s+([^\s`'"]+)"#)
         let source = add.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))
             .flatMap { text[$0.range(at: 1)] }
         return .plugin(name: name, marketplace: market, marketplaceSource: source)
     }
 
     private static func parseNpx(_ text: String) -> InstallIntent? {
-        let re = try! NSRegularExpression(pattern: #"npx\s+(?:-y\s+)?skills\s+add\s+(\S+)((?:\s+(?:--skill|-s)\s+[^\s`]+)*)"#)
+        let re = try! NSRegularExpression(pattern: #"npx\s+(?:-y\s+)?skills\s+add\s+(\S+)"#)
         guard let m = re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-              let ref = text[m.range(at: 1)] else { return nil }
+              let ref = text[m.range(at: 1)],
+              let matchRange = Range(m.range(at: 0), in: text) else { return nil }
         guard let (owner, repo) = ownerRepo(fromRef: ref.trimmingCharacters(in: CharacterSet(charactersIn: "`'\""))) else { return nil }
-        var only: [String]?
-        if let flags = text[m.range(at: 2)] {
-            let skillRe = try! NSRegularExpression(pattern: #"(?:--skill|-s)\s+([^\s`]+)"#)
-            if let sm = skillRe.firstMatch(in: flags, range: NSRange(flags.startIndex..., in: flags)),
-               let list = flags[sm.range(at: 1)] {
-                only = list.split(separator: ",").map { String($0) }
+
+        // --skill/-s can appear anywhere on the rest of the line, in any order
+        // relative to other flags, and possibly repeated — so scan the whole
+        // rest of the line (stopping at a newline or closing backtick) rather
+        // than only the text immediately following the matched ref.
+        var rest = text[matchRange.upperBound...]
+        if let newline = rest.firstIndex(of: "\n") { rest = rest[rest.startIndex..<newline] }
+        if let backtick = rest.firstIndex(of: "`") { rest = rest[rest.startIndex..<backtick] }
+        let restString = String(rest)
+        let skillRe = try! NSRegularExpression(pattern: #"(?:--skill|-s)\s+([^\s`]+)"#)
+        let matches = skillRe.matches(in: restString, range: NSRange(restString.startIndex..., in: restString))
+        var collected: [String] = []
+        for sm in matches {
+            if let list = restString[sm.range(at: 1)] {
+                collected.append(contentsOf: list.split(separator: ",").map { String($0) })
             }
         }
-        return .skillsRepo(owner: owner, repo: repo, subpath: nil, onlySkills: only)
+        return .skillsRepo(owner: owner, repo: repo, subpath: nil, onlySkills: collected.isEmpty ? nil : collected)
     }
 
     private static func parseSkillsSh(_ text: String) -> InstallIntent? {
@@ -84,7 +96,7 @@ public enum InstallIntentParser {
         guard let m = re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let owner = text[m.range(at: 1)], var repo = text[m.range(at: 2)] else { return nil }
         if repo.hasSuffix(".git") { repo.removeLast(4) }
-        let path = text[m.range(at: 3)]?.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let path = text[m.range(at: 3)]?.trimmingCharacters(in: CharacterSet(charactersIn: "/).,"))
         let last = path?.split(separator: "/").last.map(String.init)
         return .skillsRepo(owner: owner, repo: repo, subpath: path, onlySkills: last.map { [$0] })
     }

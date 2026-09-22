@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 public struct CommandResult: Sendable, Equatable {
     public let status: Int32
@@ -60,6 +65,15 @@ public struct ShellCommandRunner: CommandRunner {
                 if process.isRunning {
                     timedOutFlag.markTimedOut()
                     process.terminate()
+                    // Escalate to SIGKILL if the process ignores SIGTERM (or is
+                    // stuck, e.g. a daemonised child keeps the parent's group
+                    // alive). Checked again after the grace period so a process
+                    // that exits promptly from terminate() is left alone.
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) {
+                        if process.isRunning {
+                            kill(process.processIdentifier, SIGKILL)
+                        }
+                    }
                 }
             }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
@@ -72,13 +86,19 @@ public struct ShellCommandRunner: CommandRunner {
             // readabilityHandler while the process runs avoids that.
             let outBuffer = OutputBuffer()
             let errBuffer = OutputBuffer()
+            // Signaled once each pipe's readabilityHandler observes EOF (an empty
+            // read), so terminationHandler can wait for "all output drained"
+            // instead of racing readDataToEndOfFile against data that hasn't
+            // arrived yet.
+            let outEOF = DispatchSemaphore(value: 0)
+            let errEOF = DispatchSemaphore(value: 0)
             out.fileHandleForReading.readabilityHandler = { handle in
                 let chunk = handle.availableData
-                if chunk.isEmpty { handle.readabilityHandler = nil } else { outBuffer.append(chunk) }
+                if chunk.isEmpty { handle.readabilityHandler = nil; outEOF.signal() } else { outBuffer.append(chunk) }
             }
             err.fileHandleForReading.readabilityHandler = { handle in
                 let chunk = handle.availableData
-                if chunk.isEmpty { handle.readabilityHandler = nil } else { errBuffer.append(chunk) }
+                if chunk.isEmpty { handle.readabilityHandler = nil; errEOF.signal() } else { errBuffer.append(chunk) }
             }
 
             process.terminationHandler = { p in
@@ -87,16 +107,36 @@ public struct ShellCommandRunner: CommandRunner {
                 // from capturing `DispatchWorkItem`, which isn't Sendable. Letting the
                 // timer fire after a normal exit is harmless: it checks
                 // process.isRunning (false by then) and no-ops.
+                //
+                // EOF normally arrives promptly: we close our own copy of each
+                // pipe's write end right after `run()` below, so once the child
+                // (and any non-daemonised descendants) exit and close theirs,
+                // the read end sees EOF. A daemonised grandchild that inherited
+                // the write end can still hold it open indefinitely though, so
+                // this wait is bounded rather than calling readDataToEndOfFile
+                // (which would block forever in that case) or waiting unbounded
+                // on the semaphore. Both waits share one absolute deadline (not
+                // two independent 1 s relative waits) so a hang on stdout
+                // doesn't cost stderr its own extra second on top.
+                let drainDeadline = DispatchTime.now() + 1.0
+                _ = outEOF.wait(timeout: drainDeadline)
+                _ = errEOF.wait(timeout: drainDeadline)
                 out.fileHandleForReading.readabilityHandler = nil
                 err.fileHandleForReading.readabilityHandler = nil
-                // Catches any bytes written between the last readability callback and exit.
-                outBuffer.append(out.fileHandleForReading.readDataToEndOfFile())
-                errBuffer.append(err.fileHandleForReading.readDataToEndOfFile())
                 let o = String(decoding: outBuffer.drain(), as: UTF8.self)
                 let e = String(decoding: errBuffer.drain(), as: UTF8.self)
                 continuation.resume(returning: CommandResult(status: p.terminationStatus, stdout: o, stderr: e, timedOut: timedOutFlag.didTimeOut))
             }
-            do { try process.run() } catch {
+            do {
+                try process.run()
+                // The child has its own dup'd copies of the pipe fds; closing
+                // ours here means the read end can see EOF as soon as every
+                // process holding a write-end copy (the child and any of its
+                // own non-daemonised children) closes it, rather than waiting
+                // on us to also drop our reference at some later point.
+                try? out.fileHandleForWriting.close()
+                try? err.fileHandleForWriting.close()
+            } catch {
                 timer.cancel()
                 out.fileHandleForReading.readabilityHandler = nil
                 err.fileHandleForReading.readabilityHandler = nil

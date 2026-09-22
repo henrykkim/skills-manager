@@ -60,7 +60,8 @@ final class InstallSheetModel {
             guard let self, !Task.isCancelled, gen == self.generation else { return }
             var intent = InstallIntentParser.parse(input)
             if case .unrecognized = intent {
-                intent = await self.guesser.guess(input)
+                let guess = await self.guesser.guess(input)
+                if case .unrecognized = guess {} else { intent = guess }
             }
             guard !Task.isCancelled, gen == self.generation else { return }
             if case .unrecognized(let diagnosis) = intent { self.phase = .unrecognized(diagnosis); return }
