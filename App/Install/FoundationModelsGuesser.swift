@@ -25,10 +25,14 @@ struct FoundationModelsGuesser: IntentGuesser {
             plugin = a Claude Code plugin installed with `/plugin install name@marketplace` or `claude plugin install`.
             Anything else is unknown. Never invent names that are not in the text.
             """)
-        let task = Task { try await session.respond(to: "Input:\n\(text)", generating: GuessedIntent.self).content }
-        let timeout = Task { try await Task.sleep(for: .seconds(5)); task.cancel() }
-        defer { timeout.cancel() }
-        guard let g = try? await task.value else { return .unrecognized(diagnosis: Diagnosis.generic) }
+        let guessed: GuessedIntent? = await withTaskGroup(of: GuessedIntent?.self) { group in
+            group.addTask { try? await session.respond(to: "Input:\n\(text)", generating: GuessedIntent.self).content }
+            group.addTask { try? await Task.sleep(for: .seconds(5)); return nil }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        guard let g = guessed else { return .unrecognized(diagnosis: Diagnosis.generic) }
         return Self.validate(g)
         #else
         return .unrecognized(diagnosis: Diagnosis.generic)
@@ -52,7 +56,7 @@ struct FoundationModelsGuesser: IntentGuesser {
         func ok(_ s: String) -> Bool { s.range(of: ident, options: .regularExpression) != nil }
         switch g.kind {
         case "skills-repo":
-            let parts = g.repo.split(separator: "/").map(String.init)
+            let parts = g.repo.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
             guard parts.count == 2, parts.allSatisfy(ok) else { return .unrecognized(diagnosis: Diagnosis.generic) }
             let only = g.skills.filter(ok)
             return .skillsRepo(owner: parts[0], repo: parts[1], subpath: nil, onlySkills: only.isEmpty ? nil : only)

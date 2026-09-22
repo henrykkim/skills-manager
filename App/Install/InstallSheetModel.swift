@@ -29,6 +29,10 @@ final class InstallSheetModel {
     private let runner: CommandRunner
     private var recognition: Task<Void, Never>?
     private var generation = 0
+    /// The last preview shown, kept alive past a subsequent `.failure` phase
+    /// so `retry()` has something to go back to (the computed `preview` is
+    /// nil once `phase` moves to `.installing`/`.failure`/`.success`).
+    private var lastPreview: InstallPreview?
 
     init(paths: ClaudePaths, github: GitHubClient, guesser: IntentGuesser, runner: CommandRunner) {
         self.paths = paths
@@ -45,7 +49,11 @@ final class InstallSheetModel {
         generation += 1
         let gen = generation
         let input = text
-        guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { phase = .idle; return }
+        guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            phase = .idle
+            missingTool = nil
+            return
+        }
         phase = .looking
         recognition = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(400))
@@ -60,8 +68,10 @@ final class InstallSheetModel {
                 let preview = try await self.resolver.resolve(intent)
                 guard !Task.isCancelled, gen == self.generation else { return }
                 self.selected = Set(preview.skills.filter(\.isPreselected).map(\.folder))
+                self.lastPreview = preview
                 self.phase = .preview(preview)
-                await self.checkTools(for: preview.kind)
+                self.missingTool = nil
+                await self.checkTools(for: preview.kind, generation: gen)
             } catch let error as InstallError {
                 guard gen == self.generation else { return }
                 self.phase = .unrecognized(Self.sentence(for: error))
@@ -84,9 +94,10 @@ final class InstallSheetModel {
 
     // MARK: preconditions
 
-    func checkTools(for kind: PreviewKind) async {
+    func checkTools(for kind: PreviewKind, generation: Int? = nil) async {
         let tool = kind == .skillsRepo ? "npx" : "claude"
         let present = await ToolCheck.resolves(tool, runner: runner)
+        if let generation, generation != self.generation { return }
         missingTool = present ? nil : (kind == .skillsRepo
             ? "Node.js is needed to install skills. Install it from nodejs.org, then try again."
             : "Claude Code's command-line tool wasn't found.")
@@ -143,7 +154,7 @@ final class InstallSheetModel {
         return preview.skills.filter { folders.contains($0.folder) }
     }
 
-    func retry() { if let preview { phase = .preview(preview) } }
+    func retry() { if let lastPreview { phase = .preview(lastPreview) } }
 
     func reset() {
         recognition?.cancel()
@@ -151,6 +162,7 @@ final class InstallSheetModel {
         text = ""
         selected = []
         missingTool = nil
+        lastPreview = nil
         phase = .idle
     }
 
