@@ -15,7 +15,7 @@
 - All new `Skill` / `Plugin` fields are optional with defaulted initializer parameters so existing call sites (`InvocationTests.makeSkill`) keep compiling.
 - Copy is sentence case, plain English, written for someone who has never opened a terminal.
 - Spacing uses only the `Spacing` scale in `App/DesignSystem.swift`. Motion is critically damped only.
-- **UI tasks (5, 6, 7) MUST invoke the design skills** `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, and `better-ui` before editing views, and apply: tabular figures on dates/versions, optical alignment of dot + badge to the title, comfortable link hit areas, no layout shift when optional rows are absent (spec §4).
+- **UI tasks (5, 6, 7) MUST invoke the design skills** `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, `better-ui`, `better-layout`, `better-typography`, `better-accessibility`, and `better-writing` before editing views, and apply: tabular figures on dates/versions, optical alignment of dot + badge to the title, comfortable link hit areas, no layout shift when optional rows are absent (spec §4).
 - Sidebar navigation model is out of scope: `DisclosureGroup` chevrons and sticky expansion stay exactly as they are.
 - Core tests: `cd SkillsManagerCore && swift test`. App build: from repo root, `xcodegen generate && xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager -configuration Debug -derivedDataPath build build`.
 - Commit after every task with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` as the last line.
@@ -748,7 +748,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: nothing new.
 - Produces: no API changes. Behavior: no "Updated" text in the sidebar; no visible Refresh button; ⌘R still calls `store.reload()`.
 
-Before editing, invoke `better-ui` and `make-interfaces-feel-better` (design-skill requirement, Global Constraints) and keep their guidance on hit areas and density in mind for the rows.
+Before editing, invoke `better-ui`, `better-layout`, `better-accessibility`, `better-writing` and `make-interfaces-feel-better` (design-skill requirement, Global Constraints) and keep their guidance on hit areas and density in mind for the rows.
 
 - [ ] **Step 1: Remove the dates from the rows**
 
@@ -822,7 +822,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   extension Font { static let metadata: Font }        // caption, tabular figures
   ```
 
-**REQUIRED before editing:** invoke `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, and `better-ui`. Apply: links get a full-row hit area (not just the text), an external-link glyph that reads as "leaves the app", hover shows the destination, and the pressed state is subtle (opacity, critically damped).
+**REQUIRED before editing:** invoke `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, `better-ui`, `better-layout`, `better-typography`, `better-accessibility`, and `better-writing`. Apply: links get a full-row hit area (not just the text), an external-link glyph that reads as "leaves the app", hover shows the destination, and the pressed state is subtle (opacity, critically damped).
 
 - [ ] **Step 1: Add the font**
 
@@ -912,7 +912,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `Plugin.authorName/authorURL/homepageURL/marketplaceURL/installedAt/lastUpdated` (Task 3), `SourceLink`, `UpdatedLabel`, `Font.metadata` (Task 5).
 - Produces: nothing new.
 
-**REQUIRED before editing:** invoke `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, and `better-ui`. Apply: badge and dot sit on the title's baseline (use `.firstTextBaseline` alignment), Details rows keep constant height whether or not they contain a link, dates and version use `Font.metadata`.
+**REQUIRED before editing:** invoke `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, `better-ui`, `better-layout`, `better-typography`, `better-accessibility`, and `better-writing`. Apply: badge and dot sit on the title's baseline (use `.firstTextBaseline` alignment), Details rows keep constant height whether or not they contain a link, dates and version use `Font.metadata`.
 
 - [ ] **Step 1: Rewrite the header**
 
@@ -1031,7 +1031,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `Skill.sourceURL/sourceLabel/installedAt/updatedAt/lastModified` (Task 2), `Plugin.homepageURL/marketplaceURL/installedAt` (Task 3), `SourceLink`, `UpdatedLabel`, `Font.metadata` (Task 5).
 - Produces: `SkillDetailView(skill:parentPlugin:)` — new optional `parentPlugin: Plugin?` parameter.
 
-**REQUIRED before editing:** invoke `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, and `better-ui`. Same expectations as Task 6.
+**REQUIRED before editing:** invoke `apple-design`, `make-interfaces-feel-better`, `emil-design-eng`, `better-ui`, `better-layout`, `better-typography`, `better-accessibility`, and `better-writing`. Same expectations as Task 6.
 
 - [ ] **Step 1: Pass the parent plugin from the library**
 
