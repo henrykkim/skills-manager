@@ -27,6 +27,17 @@ private final class TimeoutFlag: @unchecked Sendable {
     var didTimeOut: Bool { lock.lock(); defer { lock.unlock() }; return flag }
 }
 
+/// Thread-safe byte accumulator fed by a pipe's `readabilityHandler`. A pipe's
+/// kernel buffer is ~64 KB; a child that writes more than that before exiting
+/// blocks on write until something drains the pipe, so we must read
+/// continuously while the process runs rather than only once at exit.
+private final class OutputBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+    func append(_ chunk: Data) { lock.lock(); data.append(chunk); lock.unlock() }
+    func drain() -> Data { lock.lock(); defer { lock.unlock() }; return data }
+}
+
 /// Runs argv through the user's login shell so `npx`/`claude` resolve exactly
 /// as in Terminal. Spinners suppressed via NO_COLOR/CI/TERM.
 public struct ShellCommandRunner: CommandRunner {
@@ -52,18 +63,43 @@ public struct ShellCommandRunner: CommandRunner {
                 }
             }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
+
+            // A pipe's kernel buffer is ~64 KB; a child that writes more than that
+            // before exiting blocks on write until the pipe is drained. Reading only
+            // once in terminationHandler (via readDataToEndOfFile) is too late for
+            // that case — the child never reaches exit, so terminationHandler never
+            // fires, and the call hangs until the timeout. Draining continuously via
+            // readabilityHandler while the process runs avoids that.
+            let outBuffer = OutputBuffer()
+            let errBuffer = OutputBuffer()
+            out.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if chunk.isEmpty { handle.readabilityHandler = nil } else { outBuffer.append(chunk) }
+            }
+            err.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if chunk.isEmpty { handle.readabilityHandler = nil } else { errBuffer.append(chunk) }
+            }
+
             process.terminationHandler = { p in
                 // Note: we deliberately don't call timer.cancel() here — Swift 6
                 // strict concurrency forbids a `@Sendable` closure (terminationHandler)
                 // from capturing `DispatchWorkItem`, which isn't Sendable. Letting the
                 // timer fire after a normal exit is harmless: it checks
                 // process.isRunning (false by then) and no-ops.
-                let o = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-                let e = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                out.fileHandleForReading.readabilityHandler = nil
+                err.fileHandleForReading.readabilityHandler = nil
+                // Catches any bytes written between the last readability callback and exit.
+                outBuffer.append(out.fileHandleForReading.readDataToEndOfFile())
+                errBuffer.append(err.fileHandleForReading.readDataToEndOfFile())
+                let o = String(decoding: outBuffer.drain(), as: UTF8.self)
+                let e = String(decoding: errBuffer.drain(), as: UTF8.self)
                 continuation.resume(returning: CommandResult(status: p.terminationStatus, stdout: o, stderr: e, timedOut: timedOutFlag.didTimeOut))
             }
             do { try process.run() } catch {
                 timer.cancel()
+                out.fileHandleForReading.readabilityHandler = nil
+                err.fileHandleForReading.readabilityHandler = nil
                 continuation.resume(returning: CommandResult(status: 127, stdout: "", stderr: error.localizedDescription, timedOut: false))
             }
         }

@@ -47,6 +47,7 @@ public struct Installer: Sendable {
         var log = ""
         for argv in plan(preview, selectedFolders: selectedFolders) {
             let result = await runner.run(argv, timeout: Self.timeout)
+            if !log.isEmpty { log += "\n" }
             log += result.combinedOutput
             guard result.status == 0, !result.timedOut else {
                 return .failure(message: FailureCopy.sentence(for: result, marketplace: preview.marketplace), log: log)
