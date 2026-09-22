@@ -95,6 +95,20 @@ import Testing
     #expect(disabled.homepageURL == URL(string: "https://github.com/test-org/disabled"))
 }
 
+@Test func repositoryObjectUrlIsUsedWhenHomepageMissing() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    // Overwrite the disabled plugin's manifest with an npm-style repository object.
+    let manifest = home.appending(
+        path: ".claude/plugins/cache/test-market/disabled-plugin/0.1.0/.claude-plugin/plugin.json")
+    try #"{ "name": "disabled-plugin", "repository": { "type": "git", "url": "https://github.com/test-org/disabled.git" } }"#
+        .write(to: manifest, atomically: true, encoding: .utf8)
+
+    let result = PluginRegistry.loadPlugins(paths: ClaudePaths(home: home), enabledPlugins: [:])
+    let disabled = try #require(result.plugins.first { $0.pluginID == "disabled-plugin@test-market" })
+    #expect(disabled.homepageURL == URL(string: "https://github.com/test-org/disabled"))
+}
+
 @Test func marketplaceUrlDerivesFromGitUrlForm() throws {
     let home = try FixtureHome.make()
     defer { try? FileManager.default.removeItem(at: home) }

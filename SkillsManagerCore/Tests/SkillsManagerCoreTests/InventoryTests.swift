@@ -55,6 +55,27 @@ import Testing
     #expect(unrecorded.updatedAt == nil)
 }
 
+@Test func personalSkillWithCollidingNameDoesNotBorrowLockProvenance() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    // A user-authored personal skill whose folder name matches a lock entry.
+    let dir = home.appending(path: ".claude/skills/shared-only-skill")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    try "---\nname: mine\ndescription: Written by hand\n---\n"
+        .write(to: dir.appending(path: "SKILL.md"), atomically: true, encoding: .utf8)
+    let lockFile = home.appending(path: ".agents/.skill-lock.json")
+    try #"{ "version": 1, "skills": { "shared-only-skill": { "source": "someone/else", "sourceUrl": "https://github.com/someone/else.git", "installedAt": "2026-01-01T00:00:00Z" } } }"#
+        .write(to: lockFile, atomically: true, encoding: .utf8)
+
+    let inventory = Inventory.load(paths: ClaudePaths(home: home))
+    let mine = try #require(inventory.personalSkills.first { $0.folderName == "shared-only-skill" })
+    #expect(mine.sourceURL == nil)
+    #expect(mine.installedAt == nil)
+    // The real shared copy still gets its provenance.
+    let shared = try #require(inventory.sharedSkills.first { $0.folderName == "shared-only-skill" })
+    #expect(shared.sourceURL == URL(string: "https://github.com/someone/else"))
+}
+
 @Test func plainPersonalSkillHasNoLockProvenance() throws {
     let home = try FixtureHome.make()
     defer { try? FileManager.default.removeItem(at: home) }

@@ -126,8 +126,16 @@ public enum PluginRegistry {
             } else if let author = json["author"] as? String {
                 m.authorName = author            // some manifests use a bare string
             }
+            let repositoryURLString: String?
+            if let repoString = json["repository"] as? String {
+                repositoryURLString = repoString
+            } else if let repoDict = json["repository"] as? [String: Any] {
+                repositoryURLString = repoDict["url"] as? String
+            } else {
+                repositoryURLString = nil
+            }
             m.homepageURL = GitURL.browsable(json["homepage"] as? String)
-                ?? GitURL.browsable(json["repository"] as? String)
+                ?? GitURL.browsable(repositoryURLString)
             return m
         }
     }

@@ -147,6 +147,7 @@ struct SourceLink: View {
                 Image(systemName: "arrow.up.right")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
             .foregroundStyle(Color.accentColor)
             .contentShape(Rectangle())
