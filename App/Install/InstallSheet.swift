@@ -48,8 +48,8 @@ struct InstallSheet: View {
                     Text("e.g. https://github.com/owner/repo")
                         .font(.invocation)
                         .foregroundStyle(.tertiary)
-                        .padding(.horizontal, Spacing.sm + 4)
-                        .padding(.vertical, Spacing.sm + 4)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.md)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
@@ -213,7 +213,8 @@ struct InstallSheet: View {
             default:
                 Button("Cancel") { model.reset(); onDone() }.keyboardShortcut(.cancelAction)
                 Button("Install") { Task { await model.install() } }
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .help("Install (⌘↩)")
                     .disabled(!model.canInstall)
             }
         }

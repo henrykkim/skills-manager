@@ -40,6 +40,13 @@ struct LibraryView: View {
         .onReceive(NotificationCenter.default.publisher(for: .showInstallSheet)) { _ in showInstall = true }
         .onDrop(of: [.url, .plainText], isTargeted: nil) { providers in
             guard let provider = providers.first else { return false }
+            if provider.canLoadObject(ofClass: NSURL.self) {
+                _ = provider.loadObject(ofClass: NSURL.self) { object, _ in
+                    guard let url = (object as? NSURL)?.absoluteString else { return }
+                    Task { @MainActor in installModel.text = url; showInstall = true }
+                }
+                return true
+            }
             _ = provider.loadObject(ofClass: NSString.self) { object, _ in
                 guard let s = object as? String else { return }
                 Task { @MainActor in installModel.text = s; showInstall = true }
