@@ -60,3 +60,50 @@ import Testing
     #expect(result.plugins.isEmpty)
     #expect(result.issues.isEmpty)
 }
+
+@Test func pluginReadsAuthorAndLinksFromManifestAndMarketplace() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let result = PluginRegistry.loadPlugins(paths: ClaudePaths(home: home), enabledPlugins: [:])
+
+    let demo = try #require(result.plugins.first { $0.pluginID == "demo-plugin@test-market" })
+    #expect(demo.authorName == "Test Author")
+    #expect(demo.authorURL == URL(string: "https://example.com/author"))
+    #expect(demo.homepageURL == URL(string: "https://example.com/demo"))          // homepage wins over repository
+    #expect(demo.marketplaceURL == URL(string: "https://github.com/test-org/test-market"))
+    #expect(demo.installedAt != nil)
+    #expect(demo.lastUpdated! > demo.installedAt!)
+
+    let disabled = try #require(result.plugins.first { $0.pluginID == "disabled-plugin@test-market" })
+    #expect(disabled.authorName == nil)
+    #expect(disabled.authorURL == nil)
+    #expect(disabled.homepageURL == nil)
+    #expect(disabled.marketplaceURL == URL(string: "https://github.com/test-org/test-market"))
+}
+
+@Test func repositoryIsUsedWhenHomepageMissing() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    // Overwrite the disabled plugin's manifest with repository only.
+    let manifest = home.appending(
+        path: ".claude/plugins/cache/test-market/disabled-plugin/0.1.0/.claude-plugin/plugin.json")
+    try #"{ "name": "disabled-plugin", "repository": "https://github.com/test-org/disabled.git" }"#
+        .write(to: manifest, atomically: true, encoding: .utf8)
+
+    let result = PluginRegistry.loadPlugins(paths: ClaudePaths(home: home), enabledPlugins: [:])
+    let disabled = try #require(result.plugins.first { $0.pluginID == "disabled-plugin@test-market" })
+    #expect(disabled.homepageURL == URL(string: "https://github.com/test-org/disabled"))
+}
+
+@Test func marketplaceUrlDerivesFromGitUrlForm() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let paths = ClaudePaths(home: home)
+    try #"{ "test-market": { "source": { "source": "git", "url": "https://github.com/test-org/test-market.git" } } }"#
+        .write(to: paths.knownMarketplacesFile, atomically: true, encoding: .utf8)
+
+    let result = PluginRegistry.loadPlugins(paths: paths, enabledPlugins: [:])
+    let demo = try #require(result.plugins.first { $0.pluginID == "demo-plugin@test-market" })
+    #expect(demo.marketplaceURL == URL(string: "https://github.com/test-org/test-market"))
+    #expect(demo.provenance == "Git: https://github.com/test-org/test-market.git") // sidebar text unchanged
+}

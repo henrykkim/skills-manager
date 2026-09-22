@@ -22,9 +22,14 @@ enum FixtureHome {
             // Hidden files don't reliably survive SPM's resource copying, and
             // symlinks can't be bundled at all — write both here instead.
             try writePluginManifest(home: dest, marketplace: "test-market", plugin: "demo-plugin",
-                                    version: "1.2.0", description: "Demo plugin for tests")
+                                    version: "1.2.0", description: "Demo plugin for tests",
+                                    extra: #"""
+                                    , "author": { "name": "Test Author", "url": "https://example.com/author" },
+                                      "homepage": "https://example.com/demo",
+                                      "repository": "https://github.com/test-org/demo-plugin.git"
+                                    """#)
             try writePluginManifest(home: dest, marketplace: "test-market", plugin: "disabled-plugin",
-                                    version: "0.1.0", description: "Disabled in settings")
+                                    version: "0.1.0", description: "Disabled in settings", extra: "")
             // The shape `npx skills add` creates: canonical copy in ~/.agents/skills,
             // symlinked into ~/.claude/skills so Claude Code sees it.
             try fm.createSymbolicLink(
@@ -48,11 +53,11 @@ enum FixtureHome {
     }
 
     private static func writePluginManifest(home: URL, marketplace: String, plugin: String,
-                                            version: String, description: String) throws {
+                                            version: String, description: String, extra: String) throws {
         let dir = home.appending(
             path: ".claude/plugins/cache/\(marketplace)/\(plugin)/\(version)/.claude-plugin")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let json = #"{ "name": "\#(plugin)", "version": "\#(version)", "description": "\#(description)" }"#
+        let json = #"{ "name": "\#(plugin)", "version": "\#(version)", "description": "\#(description)"\#(extra) }"#
         try json.write(to: dir.appending(path: "plugin.json"), atomically: true, encoding: .utf8)
     }
 

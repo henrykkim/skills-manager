@@ -6,6 +6,7 @@ public struct InstalledPluginRecord: Sendable, Equatable {
     public let marketplace: String
     public let version: String?
     public let installPath: String?
+    public let installedAt: Date?
     public let lastUpdated: Date?
 }
 
@@ -30,6 +31,7 @@ public enum PluginRegistry {
                 let scope: String?
                 let installPath: String?
                 let version: String?
+                let installedAt: String?
                 let lastUpdated: String?
             }
         }
@@ -45,6 +47,7 @@ public enum PluginRegistry {
                 marketplace: String(parts[1]),
                 version: entry.version,
                 installPath: entry.installPath,
+                installedAt: ISODate.parse(entry.installedAt),
                 lastUpdated: ISODate.parse(entry.lastUpdated))
         }
     }
@@ -64,8 +67,7 @@ public enum PluginRegistry {
             return result // no file at all is normal — Claude Code without plugins
         }
 
-        let provenanceByMarketplace = marketplaceProvenance(
-            knownMarketplacesFile: paths.knownMarketplacesFile)
+        let marketplaces = marketplaceInfo(knownMarketplacesFile: paths.knownMarketplacesFile)
 
         for record in records.sorted(by: { $0.pluginID < $1.pluginID }) {
             guard let contentDir = contentDirectory(for: record, paths: paths) else {
@@ -78,12 +80,14 @@ public enum PluginRegistry {
                 directory: contentDir.appending(path: "skills", directoryHint: .isDirectory),
                 source: .plugin(pluginID: record.pluginID))
             result.issues.append(contentsOf: scan.issues)
+            let manifest = Manifest.read(contentDir: contentDir)
+            let market = marketplaces[record.marketplace]
             result.plugins.append(Plugin(
                 pluginID: record.pluginID,
                 name: record.name,
                 marketplace: record.marketplace,
-                summary: pluginDescription(contentDir: contentDir),
-                provenance: provenanceByMarketplace[record.marketplace],
+                summary: manifest.description,
+                provenance: market?.provenance,
                 version: record.version,
                 contentDirectory: contentDir,
                 lastUpdated: record.lastUpdated,
@@ -91,39 +95,65 @@ public enum PluginRegistry {
                 skills: scan.skills,
                 commands: loadCommands(
                     pluginName: record.name,
-                    commandsDir: contentDir.appending(path: "commands", directoryHint: .isDirectory))))
+                    commandsDir: contentDir.appending(path: "commands", directoryHint: .isDirectory)),
+                authorName: manifest.authorName,
+                authorURL: manifest.authorURL,
+                homepageURL: manifest.homepageURL,
+                marketplaceURL: market?.url,
+                installedAt: record.installedAt))
         }
         return result
     }
 
-    /// Human-readable origin per marketplace, from known_marketplaces.json.
-    /// Lenient: missing/unreadable file just means no provenance shown.
-    private static func marketplaceProvenance(knownMarketplacesFile: URL) -> [String: String] {
+    /// The fields we show from the plugin's own manifest. Every field optional.
+    struct Manifest {
+        var description: String?
+        var authorName: String?
+        var authorURL: URL?
+        var homepageURL: URL?
+
+        static func read(contentDir: URL) -> Manifest {
+            let file = contentDir.appending(path: ".claude-plugin/plugin.json")
+            guard let data = try? Data(contentsOf: file),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return Manifest()
+            }
+            var m = Manifest()
+            m.description = json["description"] as? String
+            if let author = json["author"] as? [String: Any] {
+                m.authorName = author["name"] as? String
+                m.authorURL = GitURL.browsable(author["url"] as? String)
+            } else if let author = json["author"] as? String {
+                m.authorName = author            // some manifests use a bare string
+            }
+            m.homepageURL = GitURL.browsable(json["homepage"] as? String)
+                ?? GitURL.browsable(json["repository"] as? String)
+            return m
+        }
+    }
+
+    struct MarketplaceInfo {
+        var provenance: String?   // sidebar caption text, unchanged from plan 1
+        var url: URL?
+    }
+
+    /// Per marketplace, from known_marketplaces.json. Lenient: unreadable → empty.
+    private static func marketplaceInfo(knownMarketplacesFile: URL) -> [String: MarketplaceInfo] {
         guard let data = try? Data(contentsOf: knownMarketplacesFile),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return [:]
         }
-        var result: [String: String] = [:]
+        var result: [String: MarketplaceInfo] = [:]
         for (name, value) in json {
             guard let entry = value as? [String: Any],
                   let source = entry["source"] as? [String: Any] else { continue }
             if let repo = source["repo"] as? String {
-                result[name] = "GitHub: \(repo)"
+                result[name] = MarketplaceInfo(provenance: "GitHub: \(repo)", url: GitURL.github(repo: repo))
             } else if let url = source["url"] as? String {
-                result[name] = "Git: \(url)"
+                result[name] = MarketplaceInfo(provenance: "Git: \(url)", url: GitURL.browsable(url))
             }
         }
         return result
-    }
-
-    /// One-line description from the plugin's own manifest, if present.
-    private static func pluginDescription(contentDir: URL) -> String? {
-        let manifest = contentDir.appending(path: ".claude-plugin/plugin.json")
-        guard let data = try? Data(contentsOf: manifest),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return nil
-        }
-        return json["description"] as? String
     }
 
     /// Prefer the cache layout (relocatable, verified format); fall back to the
