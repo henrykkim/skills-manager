@@ -403,7 +403,7 @@ In `SkillScanner.swift`, change the signature to:
 and replace the `result.skills.append(Skill(...))` call with:
 
 ```swift
-                let entry = lock[entry.lastPathComponent]
+                let lockEntry = lock[entry.lastPathComponent]
                 result.skills.append(Skill(
                     folderName: entry.lastPathComponent,
                     displayName: fm2.name ?? entry.lastPathComponent,
@@ -415,13 +415,11 @@ and replace the `result.skills.append(Skill(...))` call with:
                     source: source,
                     directory: entry,
                     lastModified: modified,
-                    sourceURL: entry.sourceURL,
-                    sourceLabel: entry.sourceLabel,
-                    installedAt: entry.installedAt,
-                    updatedAt: entry.updatedAt))
+                    sourceURL: lockEntry?.sourceURL,
+                    sourceLabel: lockEntry?.sourceLabel,
+                    installedAt: lockEntry?.installedAt,
+                    updatedAt: lockEntry?.updatedAt))
 ```
-
-Note the name clash: the loop variable is already called `entry` (a `URL`). Rename the lock lookup to `lockEntry` and use `lockEntry?.sourceURL` etc. — the code above is written with the clash so the implementer sees it; the committed code must use `lockEntry`.
 
 Lookup is by folder name, which is how the lock file is keyed. A personal skill that is a symlink into `~/.agents/skills` keeps the same folder name, so it resolves too (the spec's realpath rule is satisfied by construction; no extra realpath call needed).
 
