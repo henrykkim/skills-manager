@@ -21,14 +21,6 @@ struct LibraryView: View {
             detailView
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills and commands")
-        // Reload is automatic (FSEvents). ⌘R stays as a silent manual fallback —
-        // the user never needs to know it exists (owner feedback 2026-09-21).
-        .background {
-            Button("Refresh") { store.reload() }
-                .keyboardShortcut("r")
-                .disabled(store.isLoading)
-                .hidden()
-        }
         .navigationTitle("Skills Manager")
     }
 
