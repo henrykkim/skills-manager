@@ -13,11 +13,6 @@ struct SkillRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            if let modified = skill.lastModified {
-                Text("Updated \(modified.formatted(.relative(presentation: .named)))")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
         }
         .padding(.vertical, 2)
     }
@@ -59,9 +54,6 @@ struct PluginRow: View {
         }
         if !plugin.commands.isEmpty {
             parts.append("\(plugin.commands.count) command\(plugin.commands.count == 1 ? "" : "s")")
-        }
-        if let updated = plugin.lastUpdated {
-            parts.append("updated \(updated.formatted(.relative(presentation: .named)))")
         }
         return parts.joined(separator: " · ")
     }

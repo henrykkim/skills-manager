@@ -31,3 +31,8 @@ Point the whole app at a fake home directory (nothing real is read):
 SKILLS_MANAGER_HOME=/path/to/fake/home \
   "build/Build/Products/Debug/Skills Manager.app/Contents/MacOS/Skills Manager"
 ```
+
+## Reloading
+
+The library reloads itself whenever a skill or plugin folder changes. If it
+ever looks stale, press ⌘R to re-scan by hand.
