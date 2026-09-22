@@ -127,7 +127,7 @@ lookup to `SkillScanner`.
 
 The owner asked that design skills be used when reworking UI elements. The
 implementation plan must invoke, for the view tasks: `apple-design`,
-`make-interfaces-feel-better`, `emil-design-eng`, and `better-ui`. Concrete
+`make-interfaces-feel-better`, `emil-design-eng`, `better-ui`, `better-layout`, `better-typography`, `better-accessibility`, and `better-writing`. Concrete
 expectations: tabular figures for dates and versions, optical alignment of the
 dot and badge with the title baseline, comfortable hit area on links, no
 layout shift when optional rows are absent.
