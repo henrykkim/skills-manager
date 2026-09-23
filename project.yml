@@ -21,6 +21,9 @@ settings:
       # Ad-hoc locally; the release workflow overrides CODE_SIGN_IDENTITY and
       # DEVELOPMENT_TEAM on the xcodebuild command line.
       CODE_SIGN_IDENTITY: "-"
+      # Xcode injects the get-task-allow debugging entitlement by default;
+      # notarization rejects any executable that carries it.
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 targets:
   SkillsManager:
     type: application
