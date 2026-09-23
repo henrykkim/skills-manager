@@ -32,21 +32,35 @@ struct KindBadge: View {
             .font(.caption2.weight(.semibold))
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, 2)
-            .background(tint.opacity(0.14), in: Capsule())
-            .foregroundStyle(tint)
+            // Tint carries the hue on the background only; the label stays
+            // primary so it clears 4.5:1 (tinted text measured 2.1–3.2:1).
+            .background(tint.opacity(0.16), in: Capsule())
+            .foregroundStyle(.primary)
     }
 }
 
-/// Enabled/disabled indicator with an explanatory tooltip.
+/// Enabled/disabled indicator. Enabled is the default state, so it is a
+/// quiet dot; disabled is the exception and says so in words, never by
+/// color alone.
 struct StatusDot: View {
     let isEnabled: Bool
 
     var body: some View {
-        Circle()
-            .fill(isEnabled ? Color.green : Color.secondary.opacity(0.5))
-            .frame(width: 7, height: 7)
-            .help(isEnabled ? "Enabled" : "Disabled")
-            .accessibilityLabel(isEnabled ? "Enabled" : "Disabled")
+        HStack(spacing: Spacing.xs) {
+            Circle()
+                .fill(isEnabled ? Color.green : Color.secondary.opacity(0.5))
+                .frame(width: 7, height: 7)
+            if !isEnabled {
+                Text("Disabled")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        // A 7 pt dot is too small to hover for its tooltip; pad the target.
+        .frame(minWidth: 16, minHeight: 16)
+        .help(isEnabled ? "Enabled" : "Disabled")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(isEnabled ? "Enabled" : "Disabled")
     }
 }
 
@@ -105,7 +119,9 @@ struct SectionCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text(title.uppercased())
+            Text(title)
+                .textCase(.uppercase)
+                .tracking(0.4)
                 .font(.cardLabel)
                 .foregroundStyle(.secondary)
             content

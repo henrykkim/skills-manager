@@ -70,7 +70,7 @@ private let ok = CommandResult(status: 0, stdout: "done", stderr: "", timedOut: 
     #expect(FailureCopy.sentence(for: r("Could not resolve host: github.com"), marketplace: nil) == "Couldn't reach GitHub. Check your connection.")
     #expect(FailureCopy.sentence(for: r("EACCES: permission denied"), marketplace: nil) == "macOS blocked writing to your skills folder.")
     #expect(FailureCopy.sentence(for: r("Plugin foo not found in marketplace"), marketplace: "m") == "That plugin isn't in the m marketplace.")
-    #expect(FailureCopy.sentence(for: r("something odd"), marketplace: nil) == "The installer reported a problem. Show details for what it said.")
+    #expect(FailureCopy.sentence(for: r("something odd"), marketplace: nil) == "The installer reported a problem. Show Details for what it said.")
 }
 
 @Test func noopGuesserIsUnrecognized() async {

@@ -96,7 +96,7 @@ final class InstallSheetModel {
 
     static func sentence(for error: InstallError) -> String {
         switch error {
-        case .repoNotFound: "That GitHub repository doesn't exist or is private."
+        case .repoNotFound: "That GitHub repository doesn't exist or is private. Check the link and try again."
         case .noSkills: "That repository doesn't contain any skills (no SKILL.md files)."
         case .rateLimited: "GitHub is rate-limiting requests from this Mac. Try again in a few minutes."
         case .network: "Couldn't reach GitHub. Check your connection."
@@ -112,7 +112,7 @@ final class InstallSheetModel {
         if let generation, generation != self.generation { return }
         missingTool = present ? nil : (kind == .skillsRepo
             ? "Node.js is needed to install skills. Install it from nodejs.org, then try again."
-            : "Claude Code's command-line tool wasn't found.")
+            : "Claude Code's command-line tool wasn't found. Install Claude Code, then try again.")
     }
 
     // MARK: derived

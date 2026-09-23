@@ -14,7 +14,7 @@ public enum FailureCopy {
         if out.contains("Repository not found") || out.contains("404") { return "That repository doesn't exist or is private." }
         if out.contains("EACCES") || out.localizedCaseInsensitiveContains("permission denied") { return "macOS blocked writing to your skills folder." }
         if out.contains("not found in marketplace") { return "That plugin isn't in the \(marketplace ?? "") marketplace." }
-        return "The installer reported a problem. Show details for what it said."
+        return "The installer reported a problem. Show Details for what it said."
     }
 }
 

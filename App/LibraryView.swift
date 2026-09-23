@@ -109,12 +109,24 @@ struct LibraryView: View {
         }
         .overlay {
             if isEmptyLibrary {
-                ContentUnavailableView(
-                    searchText.isEmpty ? "No Skills Found" : "No Results",
-                    systemImage: searchText.isEmpty ? "sparkles" : "magnifyingglass",
-                    description: Text(searchText.isEmpty
-                        ? "Nothing found in ~/.claude or ~/.agents yet."
-                        : "Nothing matches “\(searchText)”."))
+                // Every empty state offers one way forward.
+                if searchText.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Skills Found", systemImage: "sparkles")
+                    } description: {
+                        Text("Nothing found in ~/.claude or ~/.agents yet.")
+                    } actions: {
+                        Button("Install a Skill or Plugin") { showInstall = true }
+                    }
+                } else {
+                    ContentUnavailableView {
+                        Label("No Results", systemImage: "magnifyingglass")
+                    } description: {
+                        Text("Nothing matches “\(searchText)”.")
+                    } actions: {
+                        Button("Clear Search") { searchText = "" }
+                    }
+                }
             }
         }
     }

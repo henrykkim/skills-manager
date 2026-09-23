@@ -35,6 +35,7 @@ struct SkillDetailView: View {
                                 .truncationMode(.middle)
                                 .lineLimit(1)
                                 .textSelection(.enabled)
+                                .help(skill.directory.path)
                             Button("Reveal in Finder") {
                                 NSWorkspace.shared.activateFileViewerSelecting([skill.directory])
                             }
@@ -60,7 +61,7 @@ struct SkillDetailView: View {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                 Text(skill.displayName).font(.detailTitle)
                 switch skill.source {
-                case .personal: KindBadge(text: "Skill", tint: .blue)
+                case .personal: KindBadge(text: "Skill", tint: .gray)
                 case .shared: KindBadge(text: "Shared", tint: .teal)
                 case .plugin: KindBadge(text: "Plugin Skill", tint: .purple)
                 }
