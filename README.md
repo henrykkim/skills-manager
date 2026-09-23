@@ -30,6 +30,12 @@ xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
 open "build/Build/Products/Debug/Skills Manager.app"
 ```
 
+To make a local build the one installed in /Applications (and remove any stray Debug copies):
+
+```bash
+scripts/install-local.sh
+```
+
 ## Test
 
 ```bash
