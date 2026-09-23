@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import SkillsManagerCore
 
 enum LibrarySelection: Hashable {
@@ -12,6 +13,11 @@ struct LibraryView: View {
     @State private var selection: LibrarySelection?
     @State private var searchText = ""
     @State private var expandedPlugins: Set<String> = []
+    @State private var showInstall = false
+    @State private var installModel = InstallSheetModel(
+        paths: ClaudePaths(), github: URLSessionGitHubClient(),
+        guesser: FoundationModelsGuesser.isAvailable ? FoundationModelsGuesser() : NoopGuesser(),
+        runner: ShellCommandRunner())
 
     var body: some View {
         NavigationSplitView {
@@ -22,6 +28,31 @@ struct LibraryView: View {
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills and commands")
         .navigationTitle("Skills Manager")
+        .toolbar {
+            ToolbarItem {
+                Button { showInstall = true } label: { Label("Install", systemImage: "plus") }
+                    .help("Install a skill or plugin from a link or command")
+            }
+        }
+        .sheet(isPresented: $showInstall) {
+            InstallSheet(model: installModel) { showInstall = false }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showInstallSheet)) { _ in showInstall = true }
+        .onDrop(of: [.url, .plainText], isTargeted: nil) { providers in
+            guard let provider = providers.first else { return false }
+            if provider.canLoadObject(ofClass: NSURL.self) {
+                _ = provider.loadObject(ofClass: NSURL.self) { object, _ in
+                    guard let url = (object as? NSURL)?.absoluteString else { return }
+                    Task { @MainActor in installModel.text = url; showInstall = true }
+                }
+                return true
+            }
+            _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                guard let s = object as? String else { return }
+                Task { @MainActor in installModel.text = s; showInstall = true }
+            }
+            return true
+        }
     }
 
     private var sidebar: some View {
@@ -169,3 +200,5 @@ struct LibraryView: View {
             }
     }
 }
+
+extension Notification.Name { static let showInstallSheet = Notification.Name("SkillsManager.showInstallSheet") }

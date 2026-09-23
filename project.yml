@@ -19,6 +19,8 @@ targets:
     sources: [App]
     dependencies:
       - package: SkillsManagerCore
+      - sdk: FoundationModels.framework
+        weak: true
     info:
       path: App/Info.plist
       properties:
