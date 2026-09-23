@@ -30,7 +30,9 @@ public struct Installer: Sendable {
         case .skillsRepo:
             guard let owner = preview.owner, let repo = preview.repo else { return [] }
             var argv = ["npx", "-y", "skills", "add", "\(owner)/\(repo)", "-g", "-y", "-a", "claude-code"]
-            if !selectedFolders.isEmpty { argv += ["-s", selectedFolders.joined(separator: ",")] }
+            // `skills` reads -s as space-separated names up to the next flag, so
+            // keep it last and pass one argv entry per folder (commas would be one name).
+            if !selectedFolders.isEmpty { argv += ["-s"] + selectedFolders }
             return [argv]
         case .plugin:
             guard let name = preview.pluginName, let market = preview.marketplace else { return [] }

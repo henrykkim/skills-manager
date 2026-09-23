@@ -20,6 +20,17 @@ final class InstallSheetModel {
     var text: String = "" { didSet { if text != oldValue { scheduleRecognition() } } }
     private(set) var phase: Phase = .idle
     var selected: Set<String> = []
+
+    /// Folders the user could pick: valid skills in the current preview.
+    var selectableFolders: [String] {
+        lastPreview?.skills.filter(\.isValid).map(\.folder) ?? []
+    }
+    var allSelected: Bool {
+        let all = selectableFolders
+        return !all.isEmpty && all.allSatisfy { selected.contains($0) }
+    }
+    func selectAll() { selected.formUnion(selectableFolders) }
+    func deselectAll() { selected.subtract(selectableFolders) }
     private(set) var missingTool: String?
 
     private let paths: ClaudePaths

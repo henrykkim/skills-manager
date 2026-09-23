@@ -107,7 +107,16 @@ struct InstallSheet: View {
             if let missing = model.missingTool { Label(missing, systemImage: "exclamationmark.triangle").font(.callout).foregroundStyle(.secondary) }
 
             if !p.skills.isEmpty {
-                Text("Skills it will add".uppercased()).font(.cardLabel).foregroundStyle(.secondary)
+                HStack {
+                    Text("Skills it will add".uppercased()).font(.cardLabel).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(model.allSelected ? "Deselect all" : "Select all") {
+                        if model.allSelected { model.deselectAll() } else { model.selectAll() }
+                    }
+                    .buttonStyle(.link)
+                    .font(.callout)
+                    .disabled(model.selectableFolders.isEmpty)
+                }
                 ScrollView {
                     VStack(spacing: 0) {
                         ForEach(p.skills) { skill in

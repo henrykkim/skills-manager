@@ -37,7 +37,7 @@ private let ok = CommandResult(status: 0, stdout: "done", stderr: "", timedOut: 
 
 @Test func plansSkillsInstallWithSelectedFoldersOnly() {
     let argv = Installer(runner: FakeCommandRunner(results: [])).plan(repoPreview(["a", "b", "c"]), selectedFolders: ["a", "c"])
-    #expect(argv == [["npx", "-y", "skills", "add", "o/r", "-g", "-y", "-a", "claude-code", "-s", "a,c"]])
+    #expect(argv == [["npx", "-y", "skills", "add", "o/r", "-g", "-y", "-a", "claude-code", "-s", "a", "c"]])
 }
 
 @Test func plansPluginInstallAddingUnknownMarketplaceFirst() {
