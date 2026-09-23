@@ -10,8 +10,17 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     PRODUCT_NAME: "Skills Manager"
-    CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_STYLE: Manual
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_HARDENED_RUNTIME: YES
+  configs:
+    Debug:
+      CODE_SIGN_IDENTITY: "-"
+    Release:
+      # Ad-hoc locally; the release workflow overrides CODE_SIGN_IDENTITY and
+      # DEVELOPMENT_TEAM on the xcodebuild command line.
+      CODE_SIGN_IDENTITY: "-"
 targets:
   SkillsManager:
     type: application
@@ -25,6 +34,9 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: "Skills Manager"
+        CFBundleIconFile: AppIcon
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: ""
 schemes:

@@ -6,7 +6,20 @@ modifies your configuration.
 
 Design: `docs/superpowers/specs/2026-07-14-skills-manager-design.md`
 
-## Build
+## Install
+
+Download the latest `SkillsManager-<version>.dmg` from
+[Releases](https://github.com/henrykkim/skills-manager/releases), open it, and
+drag Skills Manager into Applications. The app is signed and notarized, so it
+opens without any Gatekeeper workaround. Requires macOS 14 or later.
+
+With Homebrew:
+
+```bash
+brew install --cask henrykkim/tap/skills-manager
+```
+
+## Build from source
 
 Requires Xcode 26+, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
