@@ -28,7 +28,7 @@ struct InstallSheet: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("Install a skill or plugin").font(.detailTitle)
+            Text("Install a Skill or Plugin").font(.detailTitle)
             Text("Paste a GitHub link, a skills.sh link, or an install command.")
                 .foregroundStyle(.secondary)
         }
@@ -82,7 +82,7 @@ struct InstallSheet: View {
         case .failure(let message, let log):
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.secondary)
-                DisclosureGroup("Show details") {
+                DisclosureGroup("Show Details") {
                     ScrollView { Text(log).font(.caption.monospaced()).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
                         .frame(maxHeight: 160)
                 }
@@ -96,7 +96,7 @@ struct InstallSheet: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                 Text(p.title).font(.headline).lineLimit(1).truncationMode(.tail)
-                KindBadge(text: p.kind == .plugin ? "Claude Code plugin" : "Skill repository", tint: p.kind == .plugin ? .purple : .blue)
+                KindBadge(text: p.kind == .plugin ? "Claude Code plugin" : "Skill repository", tint: p.kind == .plugin ? .purple : .gray)
                 if let author = p.authorName {
                     if let url = p.authorURL { SourceLink(label: author, url: url).lineLimit(1) } else { Text(author).foregroundStyle(.secondary).lineLimit(1) }
                 }
@@ -108,9 +108,9 @@ struct InstallSheet: View {
 
             if !p.skills.isEmpty {
                 HStack {
-                    Text("Skills it will add".uppercased()).font(.cardLabel).foregroundStyle(.secondary)
+                    Text("Skills it will add").textCase(.uppercase).tracking(0.4).font(.cardLabel).foregroundStyle(.secondary)
                     Spacer()
-                    Button(model.allSelected ? "Deselect all" : "Select all") {
+                    Button(model.allSelected ? "Deselect All" : "Select All") {
                         if model.allSelected { model.deselectAll() } else { model.selectAll() }
                     }
                     .buttonStyle(.link)
@@ -164,7 +164,7 @@ struct InstallSheet: View {
             .toggleStyle(.checkbox)
             .disabled(!skill.isValid)
             .accessibilityLabel(accessibilityLabel(for: skill))
-            DisclosureGroup("View skill text") {
+            DisclosureGroup("View Skill Text") {
                 ScrollView { Text(skill.body).font(.caption.monospaced()).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
                     .frame(maxHeight: 160)
             }
@@ -215,7 +215,7 @@ struct InstallSheet: View {
                 Button("Done") { model.reset(); onDone() }.keyboardShortcut(.defaultAction)
             case .failure:
                 Button("Cancel") { model.reset(); onDone() }.keyboardShortcut(.cancelAction)
-                Button("Try again") { model.retry() }.keyboardShortcut(.defaultAction)
+                Button("Try Again") { model.retry() }.keyboardShortcut(.defaultAction)
             case .installing:
                 Button("Cancel") {}.disabled(true)
                     .accessibilityHint("Installing — please wait")
