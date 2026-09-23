@@ -2,7 +2,7 @@
 # Casks/skills-manager.rb; copy it there and bump version + sha256 per release.
 cask "skills-manager" do
   version "0.1.0"
-  sha256 "REPLACE_WITH_SHA256_FROM_RELEASE"
+  sha256 "a3058b0e17717320d6c4a76536feb53e252ed049539d4f467c36e0208a5ae514"
 
   url "https://github.com/henrykkim/skills-manager/releases/download/v#{version}/SkillsManager-#{version}.dmg"
   name "Skills Manager"
