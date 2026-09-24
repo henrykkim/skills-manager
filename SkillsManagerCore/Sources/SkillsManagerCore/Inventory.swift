@@ -74,16 +74,23 @@ public struct Inventory: Sendable {
             }
         }
 
+        // A folder the user explicitly added has already been granted access —
+        // it can't trigger a new macOS prompt, so it loads even when
+        // includeProjects is false. Only ~/.claude.json and the session files
+        // (which enumerate folders the user hasn't necessarily unlocked yet)
+        // are gated by the flag.
         if includeProjects {
             let discovery = ProjectSources.discover(paths: paths, addedProjects: addedProjects)
             inv.projects = discovery.projects
             inv.issues += discovery.issues
-            for project in discovery.projects {
-                let scan = ProjectScanner.scan(project, paths: paths)
-                inv.projectSkills += scan.skills
-                inv.projectPlugins += scan.plugins
-                inv.issues += scan.issues
-            }
+        } else {
+            inv.projects = ProjectSources.normalize(addedProjects.map(\.path), home: paths.home)
+        }
+        for project in inv.projects {
+            let scan = ProjectScanner.scan(project, paths: paths)
+            inv.projectSkills += scan.skills
+            inv.projectPlugins += scan.plugins
+            inv.issues += scan.issues
         }
 
         inv.library = Library.build(

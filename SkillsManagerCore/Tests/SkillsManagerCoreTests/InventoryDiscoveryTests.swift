@@ -71,3 +71,20 @@ private func makeHome() throws -> (TempTree, ClaudePaths) {
     #expect(inv.projects.isEmpty && inv.projectSkills.isEmpty)
     #expect(inv.accountSkills.count == 1)    // account skills live in the app's own folder: no prompt
 }
+
+@Test func addedProjectFolderStillLoadsWhileProjectsAreSkipped() throws {
+    let (t, paths) = try makeHome(); defer { t.remove() }
+    try t.skill("extra", in: "elsewhere/NeverOpened/.claude/skills")
+    let inv = Inventory.load(
+        paths: paths,
+        addedFolders: [t.url("elsewhere/NeverOpened"), t.url("home/brain/skills")],
+        includeProjects: false)
+
+    // The added folder was already granted access, so it loads regardless of the flag.
+    #expect(inv.projects.map(\.displayName) == ["NeverOpened"])
+    #expect(inv.projectSkills.map(\.folderName) == ["extra"])
+    #expect(inv.notes.map(\.name) == ["skills"])
+    // Terminal/Cowork projects (which would need a fresh prompt) do not appear.
+    #expect(!inv.projects.contains { $0.displayName == "Portfolio" || $0.displayName == "CoworkThing" })
+    #expect(inv.issues.isEmpty)
+}
