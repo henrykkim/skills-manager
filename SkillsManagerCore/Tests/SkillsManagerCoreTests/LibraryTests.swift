@@ -97,3 +97,39 @@ private func plugin(_ id: String, _ scope: PluginScope) -> Plugin {
     #expect(lines[1].detail == "Ignored — Claude uses the Global copy")
     #expect(lines[2].detail == "Ignored — Claude uses the Global copy")
 }
+
+@Test func tagOrderMatchesBetweenRowTagsAndWhereItWorksLines() throws {
+    let t = try TempTree(); defer { t.remove() }
+    let home = try t.mkdir("home")
+    // Deliberately out of both input order and raw-string order: exercises
+    // localized (case-insensitive, numeric-aware) ordering — "Proj 2" before
+    // "Proj 10", "apps" before "Zeta" — and that it matches between the row
+    // tags (LocationTag.sorted) and the detail page's WhereItWorks lines
+    // (LocationOrderKey), which must never disagree.
+    let names = ["apps", "Zeta", "Proj 2", "Proj 10"]
+    var projectSkills: [Skill] = []
+    var projects: [Project] = []
+    for name in names {
+        let dir = try t.mkdir(name)
+        let d = try t.skill("review", in: "\(name)/.claude/skills")
+        projectSkills.append(skill("review", .project(root: dir, subpath: nil), dir: d))
+        projects.append(Project(root: dir, displayName: name))
+    }
+    let lib = Library.build(personal: [], project: projectSkills, account: [], plugins: [], projects: projects)
+    let entry = lib.skills[0]
+    let lines = WhereItWorks.lines(for: entry, lastSynced: nil, home: home)
+    #expect(lines.map(\.label) == entry.tags.map(\.label))
+    #expect(entry.tags.map(\.label) == ["apps", "Proj 2", "Proj 10", "Zeta"])
+}
+
+@Test func whereItWorksLinesForPluginMatchScope() throws {
+    let root = URL(fileURLWithPath: "/w/Ring", isDirectory: true)
+    let lib = Library.build(personal: [], project: [], account: [],
+        plugins: [plugin("figma@m", .project(root: root)), plugin("figma@m", .user)],
+        projects: [Project(root: root, displayName: "Ring")])
+    let entry = try #require(lib.plugins.first { $0.id == "figma@m" })
+    let lines = WhereItWorks.lines(for: entry)
+    #expect(lines.map(\.label) == ["Global", "Ring"])
+    #expect(lines.map(\.detail) == ["On for all your projects", "Turned on for this project"])
+    #expect(lines[1].revealURL == root.appending(path: ".claude", directoryHint: .isDirectory))
+}

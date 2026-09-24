@@ -40,6 +40,27 @@ public enum LocationTag: Sendable, Hashable {
     }
 }
 
+/// Shared ordering for individual locations — used by both the row tags
+/// (indirectly, via `LocationTag.sorted`) and the detail page's "Where it
+/// works" lines, so the two never disagree: tag rank, then localized label
+/// (matching `LocationTag.sorted`, not raw `<`), then a project's root copy
+/// before its nested subpath copy, then the location's own id as a final
+/// deterministic tie-break. A plain tuple comparison isn't enough here
+/// because label ordering must be localized, not lexicographic.
+struct LocationOrderKey: Comparable {
+    let tag: LocationTag
+    let hasSubpath: Bool   // true = nested copy; sorts after the project's root copy
+    let id: String
+
+    static func < (a: LocationOrderKey, b: LocationOrderKey) -> Bool {
+        if a.tag.rank != b.tag.rank { return a.tag.rank < b.tag.rank }
+        let labelOrder = a.tag.label.localizedStandardCompare(b.tag.label)
+        if labelOrder != .orderedSame { return labelOrder == .orderedAscending }
+        if a.hasSubpath != b.hasSubpath { return !a.hasSubpath }
+        return a.id < b.id
+    }
+}
+
 public struct SkillLocation: Sendable, Hashable, Identifiable {
     public var id: String { skill.id }
     public let skill: Skill
@@ -86,12 +107,20 @@ public struct Library: Sendable {
     public static func build(personal: [Skill], project: [Skill], account: [Skill],
                              plugins: [Plugin], projects: [Project]) -> Library {
         let names = Dictionary(projects.map { ($0.root.path, $0.displayName) }, uniquingKeysWith: { a, _ in a })
+        func projectName(for root: URL) -> String { names[root.path] ?? root.lastPathComponent }
         func tag(for skill: Skill) -> LocationTag {
             switch skill.source {
             case .personal, .shared, .plugin: .global
             case .account: .account
-            case .project(let root, _): .project(name: names[root.path] ?? root.lastPathComponent)
+            case .project(let root, _): .project(name: projectName(for: root))
             }
+        }
+        func hasSubpath(_ skill: Skill) -> Bool {
+            if case .project(_, let subpath) = skill.source { return subpath != nil }
+            return false
+        }
+        func orderKey(_ skill: Skill) -> LocationOrderKey {
+            LocationOrderKey(tag: tag(for: skill), hasSubpath: hasSubpath(skill), id: skill.id)
         }
 
         var lib = Library()
@@ -99,8 +128,10 @@ public struct Library: Sendable {
         // Personal + project skills merge by folder name (= the command).
         let grouped = Dictionary(grouping: personal + project, by: \.folderName)
         for (folder, copies) in grouped {
+            // No Global copy: the first location in the shared order becomes primary
+            // (deterministic — e.g. a project's root copy beats its nested copy).
             let primary = copies.first { $0.source == .personal }
-                ?? copies.sorted { tag(for: $0).label.localizedStandardCompare(tag(for: $1).label) == .orderedAscending }[0]
+                ?? copies.min { orderKey($0) < orderKey($1) }!
             let hasGlobal = primary.source == .personal
             let primaryData = skillData(primary)
             let locations = copies.map { copy in
@@ -108,15 +139,7 @@ public struct Library: Sendable {
                               isIgnored: hasGlobal && copy.source != .personal,
                               differsFromPrimary: copy.id != primary.id && skillData(copy) != primaryData)
             }
-            // Strict weak ordering: (tag rank, tag label, skill id). The brief's
-            // pairwise `LocationTag.sorted([a.tag, b.tag])` comparator collapses to a
-            // single element via its de-dup Set when a.tag == b.tag (e.g. two nested
-            // project copies sharing a project name), making `.first == a.tag` true
-            // for both (a,b) and (b,a) — violating asymmetry and crashing/misordering
-            // `sorted`. Compare the rank/label/id tuple directly instead.
-            .sorted { a, b in
-                (a.tag.rank, a.tag.label, a.skill.id) < (b.tag.rank, b.tag.label, b.skill.id)
-            }
+            .sorted { orderKey($0.skill) < orderKey($1.skill) }
             lib.skills.append(SkillEntry(id: "skill:\(folder)", skill: primary, locations: locations,
                                          copiesDiffer: locations.contains(where: \.differsFromPrimary)))
         }
@@ -136,7 +159,7 @@ public struct Library: Sendable {
                 let t: LocationTag = switch p.scope {
                 case .user: .global
                 case .cowork: .cowork
-                case .project(let root): .project(name: names[root.path] ?? root.lastPathComponent)
+                case .project(let root): .project(name: projectName(for: root))
                 }
                 return PluginLocation(plugin: p, tag: t)
             }
@@ -149,7 +172,12 @@ public struct Library: Sendable {
         }
         lib.skills.sort { byName($0, $1) || ($0.skill.displayName == $1.skill.displayName && $0.id < $1.id) }
         lib.builtIn.sort(by: byName)
-        lib.plugins.sort { $0.plugin.name.localizedStandardCompare($1.plugin.name) == .orderedAscending }
+        // Dictionary(grouping:) iteration order is randomized per launch, so break
+        // ties on id after name to keep this deterministic.
+        lib.plugins.sort { a, b in
+            let byName = a.plugin.name.localizedStandardCompare(b.plugin.name)
+            return byName != .orderedSame ? byName == .orderedAscending : a.id < b.id
+        }
         return lib
     }
 

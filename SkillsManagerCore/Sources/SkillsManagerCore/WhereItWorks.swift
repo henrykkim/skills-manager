@@ -33,10 +33,12 @@ public enum WhereItWorks {
 
     public static func lines(for entry: PluginEntry) -> [WhereLine] {
         entry.locations
-            // Same strict-weak-ordering fix as Library.build: compare (rank, label, id)
-            // directly rather than de-duping a 2-element array through LocationTag.sorted.
+            // Same shared order as the row tags (LocationOrderKey, defined in
+            // Library.swift) so this list and `entry.tags` never disagree.
+            // Plugin locations have no subpath concept, so hasSubpath is always false.
             .sorted { a, b in
-                (a.tag.rank, a.tag.label, a.id) < (b.tag.rank, b.tag.label, b.id)
+                LocationOrderKey(tag: a.tag, hasSubpath: false, id: a.id)
+                    < LocationOrderKey(tag: b.tag, hasSubpath: false, id: b.id)
             }
             .map { loc in
                 let detail = switch loc.plugin.scope {
