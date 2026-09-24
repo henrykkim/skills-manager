@@ -47,6 +47,21 @@ import Testing
     #expect(r.plugins.allSatisfy { $0.scope == .project(root: root) })
 }
 
+@Test func localSettingsOverrideProjectSettingsForSamePlugin() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let t = try TempTree(); defer { t.remove() }
+    let root = try t.mkdir("proj")
+    try t.write(#"{"enabledPlugins": {"demo-plugin@test-market": true}}"#,
+                to: "proj/.claude/settings.json")
+    try t.write(#"{"enabledPlugins": {"demo-plugin@test-market": false}}"#,
+                to: "proj/.claude/settings.local.json")
+
+    let r = ProjectScanner.scan(Project(root: root, displayName: "proj"), paths: ClaudePaths(home: home))
+    #expect(r.plugins.isEmpty)
+    #expect(r.issues.isEmpty)
+}
+
 @Test func unreadableProjectBecomesOneIssue() throws {
     let t = try TempTree(); defer { t.remove() }
     let root = try t.mkdir("locked")

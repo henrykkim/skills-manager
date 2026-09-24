@@ -29,18 +29,21 @@ public enum ProjectScanner {
             result.issues += scan.issues
         }
 
-        var seenPlugins = Set<String>()
+        // settings.local.json takes precedence over settings.json (Claude Code's
+        // own precedence: local > project) — merge before filtering to `true`.
+        var merged: [String: Bool] = [:]
         for name in ["settings.json", "settings.local.json"] {
             let file = project.root.appending(path: ".claude/\(name)")
             guard LocalFile.isDownloaded(file) else { continue }
-            let enabled = SettingsReader.enabledPlugins(settingsFile: file).filter(\.value)
-            let wanted = Set(enabled.keys).subtracting(seenPlugins)
-            guard !wanted.isEmpty else { continue }
+            let enabled = SettingsReader.enabledPlugins(settingsFile: file)
+            merged = merged.merging(enabled) { _, local in local }
+        }
+        let enabled = merged.filter(\.value)
+        if !enabled.isEmpty {
             let loaded = PluginRegistry.loadPlugins(store: paths.userPluginStore, enabledPlugins: enabled,
-                                                    scope: .project(root: project.root), only: wanted)
+                                                    scope: .project(root: project.root), only: Set(enabled.keys))
             result.plugins += loaded.plugins
             result.issues += loaded.issues
-            seenPlugins.formUnion(loaded.plugins.map(\.pluginID))
         }
         return result
     }
