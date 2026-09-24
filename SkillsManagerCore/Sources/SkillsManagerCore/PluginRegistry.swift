@@ -8,6 +8,8 @@ public struct InstalledPluginRecord: Sendable, Equatable {
     public let installPath: String?
     public let installedAt: Date?
     public let lastUpdated: Date?
+    /// Installed for the user (`--scope user`), not only for a project.
+    public var hasUserScope: Bool = true
 }
 
 public struct PluginLoadResult: Sendable {
@@ -38,7 +40,8 @@ public enum PluginRegistry {
         let data = try Data(contentsOf: installedPluginsFile)
         let file = try JSONDecoder().decode(RegistryFile.self, from: data)
         return file.plugins.compactMap { pluginID, entries in
-            guard let entry = entries.first(where: { $0.scope == "user" }) ?? entries.first else { return nil }
+            let userEntry = entries.first(where: { $0.scope == "user" })
+            guard let entry = userEntry ?? entries.first else { return nil }
             let parts = pluginID.split(separator: "@", maxSplits: 1)
             guard parts.count == 2 else { return nil }
             return InstalledPluginRecord(
@@ -48,7 +51,8 @@ public enum PluginRegistry {
                 version: entry.version,
                 installPath: entry.installPath,
                 installedAt: ISODate.parse(entry.installedAt),
-                lastUpdated: ISODate.parse(entry.lastUpdated))
+                lastUpdated: ISODate.parse(entry.lastUpdated),
+                hasUserScope: userEntry != nil)
         }
     }
 
@@ -72,6 +76,11 @@ public enum PluginRegistry {
                     detail: "Plugin registry can't be read: \(error.localizedDescription)"))
             }
             records = []
+        }
+        // A plugin installed only for a project (--scope project/local) isn't
+        // on for all your projects; project loads pick it up via `only`.
+        if scope == .user && only == nil {
+            records = records.filter(\.hasUserScope)
         }
         if let only {
             records = records.filter { only.contains($0.pluginID) }

@@ -87,7 +87,7 @@ public struct PluginLocation: Sendable, Hashable, Identifiable {
 
 public struct PluginEntry: Sendable, Hashable, Identifiable {
     public let id: String            // pluginID
-    public let plugin: Plugin        // user-scope copy when there is one
+    public let plugin: Plugin        // user-scope copy when on; else an enabled copy
     public let locations: [PluginLocation]
     public var tags: [LocationTag] { LocationTag.sorted(locations.map(\.tag)) }
 }
@@ -163,7 +163,11 @@ public struct Library: Sendable {
                 }
                 return PluginLocation(plugin: p, tag: t)
             }
-            let primary = copies.first { $0.scope == .user } ?? copies[0]
+            // The row reads the primary's on/off state: prefer the user copy when
+            // it's on, then any copy that's on, then the user copy, then the first.
+            let user = copies.first { $0.scope == .user }
+            let primary = (user?.isEnabled == true ? user : nil)
+                ?? copies.first(where: \.isEnabled) ?? user ?? copies[0]
             lib.plugins.append(PluginEntry(id: id, plugin: primary, locations: locations))
         }
 

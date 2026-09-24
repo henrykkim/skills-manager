@@ -8,10 +8,10 @@ private func skill(_ folder: String, _ source: SkillSource, dir: URL) -> Skill {
           source: source, directory: dir, lastModified: nil)
 }
 
-private func plugin(_ id: String, _ scope: PluginScope) -> Plugin {
+private func plugin(_ id: String, _ scope: PluginScope, enabled: Bool = true) -> Plugin {
     Plugin(pluginID: id, name: String(id.split(separator: "@")[0]), marketplace: "m", summary: nil,
            provenance: nil, version: "1", contentDirectory: URL(fileURLWithPath: "/tmp/\(id)"),
-           lastUpdated: nil, isEnabled: true, skills: [], commands: [], scope: scope)
+           lastUpdated: nil, isEnabled: enabled, skills: [], commands: [], scope: scope)
 }
 
 @Test func mergesSameFolderNameAcrossGlobalAndProjects() throws {
@@ -132,4 +132,21 @@ private func plugin(_ id: String, _ scope: PluginScope) -> Plugin {
     #expect(lines.map(\.label) == ["Global", "Ring"])
     #expect(lines.map(\.detail) == ["On for all your projects", "Turned on for this project"])
     #expect(lines[1].revealURL == root.appending(path: ".claude", directoryHint: .isDirectory))
+}
+
+@Test func pluginOffGloballyButOnInAProjectUsesTheEnabledCopy() {
+    let root = URL(fileURLWithPath: "/w/Ring", isDirectory: true)
+    let projects = [Project(root: root, displayName: "Ring")]
+    let lib = Library.build(personal: [], project: [], account: [],
+        plugins: [plugin("figma@m", .user, enabled: false), plugin("figma@m", .project(root: root))],
+        projects: projects)
+    let figma = lib.plugins.first { $0.id == "figma@m" }
+    #expect(figma?.plugin.scope == .project(root: root))
+    #expect(figma?.plugin.isEnabled == true)
+
+    // Off everywhere: the user copy is still the primary.
+    let off = Library.build(personal: [], project: [], account: [],
+        plugins: [plugin("figma@m", .project(root: root), enabled: false), plugin("figma@m", .user, enabled: false)],
+        projects: projects)
+    #expect(off.plugins.first?.plugin.scope == .user)
 }

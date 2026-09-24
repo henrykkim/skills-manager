@@ -121,3 +121,28 @@ import Testing
     #expect(demo.marketplaceURL == URL(string: "https://github.com/test-org/test-market"))
     #expect(demo.provenance == "Git: https://github.com/test-org/test-market.git") // sidebar text unchanged
 }
+
+@Test func projectScopedInstallIsNotGlobal() throws {
+    let home = try FixtureHome.make()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let paths = ClaudePaths(home: home)
+    // demo-plugin installed with --scope project: its only registry entry is project-scoped.
+    try #"""
+    { "version": 2, "plugins": {
+      "demo-plugin@test-market": [
+        { "scope": "project", "projectPath": "/some/proj", "installPath": "/nonexistent", "version": "1.2.0" } ],
+      "disabled-plugin@test-market": [
+        { "scope": "user", "installPath": "/nonexistent", "version": "0.1.0" } ] } }
+    """#.write(to: paths.installedPluginsFile, atomically: true, encoding: .utf8)
+
+    let user = PluginRegistry.loadPlugins(paths: paths, enabledPlugins: [:])
+    #expect(user.plugins.map(\.pluginID) == ["disabled-plugin@test-market"])
+    #expect(user.issues.isEmpty)
+
+    let root = URL(fileURLWithPath: "/some/proj", isDirectory: true)
+    let project = PluginRegistry.loadPlugins(
+        store: paths.userPluginStore, enabledPlugins: ["demo-plugin@test-market": true],
+        scope: .project(root: root), only: ["demo-plugin@test-market"])
+    #expect(project.plugins.map(\.pluginID) == ["demo-plugin@test-market"])
+    #expect(project.issues.isEmpty)
+}
