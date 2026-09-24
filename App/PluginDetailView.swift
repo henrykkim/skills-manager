@@ -3,11 +3,16 @@ import SkillsManagerCore
 
 struct PluginDetailView: View {
     let plugin: Plugin
+    let entry: PluginEntry?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xl) {
                 header
+
+                if let entry {
+                    WhereItWorksSection(lines: WhereItWorks.lines(for: entry))
+                }
 
                 if !plugin.commands.isEmpty {
                     SectionCard(title: "Commands") {

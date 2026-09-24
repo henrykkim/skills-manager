@@ -34,12 +34,13 @@ public struct Plugin: Identifiable, Sendable, Hashable {
     public let homepageURL: URL?        // manifest homepage, else repository
     public let marketplaceURL: URL?     // derived from known_marketplaces.json
     public let installedAt: Date?
+    public let scope: PluginScope
 
     public init(pluginID: String, name: String, marketplace: String, summary: String?,
                 provenance: String?, version: String?, contentDirectory: URL,
                 lastUpdated: Date?, isEnabled: Bool, skills: [Skill], commands: [PluginCommand],
                 authorName: String? = nil, authorURL: URL? = nil, homepageURL: URL? = nil,
-                marketplaceURL: URL? = nil, installedAt: Date? = nil) {
+                marketplaceURL: URL? = nil, installedAt: Date? = nil, scope: PluginScope = .user) {
         self.pluginID = pluginID
         self.name = name
         self.marketplace = marketplace
@@ -56,5 +57,23 @@ public struct Plugin: Identifiable, Sendable, Hashable {
         self.homepageURL = homepageURL
         self.marketplaceURL = marketplaceURL
         self.installedAt = installedAt
+        self.scope = scope
     }
+}
+
+public enum PluginScope: Sendable, Hashable {
+    case user                   // ~/.claude/settings.json
+    case project(root: URL)     // <root>/.claude/settings(.local).json
+    case cowork                 // Cowork's own plugin set
+}
+
+/// A plugin installation area with Claude Code's layout: installed_plugins.json,
+/// known_marketplaces.json, cache/<market>/<name>/<version>/. Claude Code's is
+/// ~/.claude/plugins; Cowork keeps an identical one per account.
+public struct PluginStore: Sendable, Hashable {
+    public let root: URL
+    public init(root: URL) { self.root = root }
+    public var installedPluginsFile: URL { root.appending(path: "installed_plugins.json") }
+    public var knownMarketplacesFile: URL { root.appending(path: "known_marketplaces.json") }
+    public var cacheDir: URL { root.appending(path: "cache", directoryHint: .isDirectory) }
 }

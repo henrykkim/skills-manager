@@ -5,6 +5,8 @@ import SkillsManagerCore
 struct SkillDetailView: View {
     let skill: Skill
     let parentPlugin: Plugin?
+    let entry: SkillEntry?
+    let accountLastSynced: Date?
 
     var body: some View {
         ScrollView {
@@ -20,6 +22,11 @@ struct SkillDetailView: View {
                     Text(Invocation.availabilityLabel(for: skill))
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                }
+
+                if let entry {
+                    WhereItWorksSection(lines: WhereItWorks.lines(
+                        for: entry, lastSynced: accountLastSynced, home: ClaudePaths().home))
                 }
 
                 if let whenToUse = skill.whenToUse {
@@ -64,6 +71,8 @@ struct SkillDetailView: View {
                 case .personal: KindBadge(text: "Skill", tint: .gray)
                 case .shared: KindBadge(text: "Shared", tint: .teal)
                 case .plugin: KindBadge(text: "Plugin Skill", tint: .purple)
+                case .project: KindBadge(text: "Project Skill", tint: .teal)
+                case .account: KindBadge(text: "Claude Account", tint: .blue)
                 }
                 if let updated = skill.updatedAt ?? skill.lastModified {
                     UpdatedLabel(date: updated)
@@ -87,6 +96,10 @@ struct SkillDetailView: View {
             } else {
                 Text("Shared skills folder (~/.agents/skills)")
             }
+        case .project(let root, _):
+            Text("Project folder (\(root.lastPathComponent))")
+        case .account:
+            Text("Your Claude account")
         case .plugin:
             if let plugin = parentPlugin, let url = plugin.homepageURL ?? plugin.marketplaceURL {
                 SourceLink(label: "Plugin \(plugin.name)", url: url)

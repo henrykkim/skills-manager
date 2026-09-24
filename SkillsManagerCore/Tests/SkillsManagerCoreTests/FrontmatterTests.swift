@@ -53,6 +53,18 @@ import Testing
     }
 }
 
+@Test func unquotedColonInValueStillParses() {
+    // Claude accepts this (a real Claude-account skill is written this way);
+    // strict YAML rejects the second ": " inside the plain value.
+    let text = "---\nname: henry-stylist\ndescription: Sizing help. Triggers on: size charts, \"what size\"\n---\nbody"
+    guard case .parsed(let fm, let body) = FrontmatterParser.parse(text) else {
+        Issue.record("expected .parsed"); return
+    }
+    #expect(fm.name == "henry-stylist")
+    #expect(fm.description == "Sizing help. Triggers on: size charts, \"what size\"")
+    #expect(body == "body")
+}
+
 @Test func nonMapYAMLIsMalformed() {
     guard case .malformed = FrontmatterParser.parse("---\n- just\n- a list\n---\nbody") else {
         Issue.record("expected .malformed"); return

@@ -5,8 +5,16 @@ import Foundation
 public struct Inventory: Sendable {
     public var personalSkills: [Skill]
     public var sharedSkills: [Skill]
-    public var plugins: [Plugin]
+    public var plugins: [Plugin]                 // user scope
     public var issues: [ParseIssue]
+    public var projects: [Project] = []
+    public var projectSkills: [Skill] = []
+    public var projectPlugins: [Plugin] = []
+    public var coworkPlugins: [Plugin] = []
+    public var accountSkills: [Skill] = []
+    public var accountLastSynced: Date?
+    public var notes: [NoteFolder] = []
+    public var library = Library()
 
     public init(personalSkills: [Skill] = [], sharedSkills: [Skill] = [],
                 plugins: [Plugin] = [], issues: [ParseIssue] = []) {
@@ -16,7 +24,21 @@ public struct Inventory: Sendable {
         self.issues = issues
     }
 
-    public static func load(paths: ClaudePaths) -> Inventory {
+    /// What each project contributes, for the file watcher: its skills folder
+    /// and both settings files — not the whole .claude folder, whose
+    /// worktrees/ change on every edit and build.
+    public var projectWatchTargets: [URL] {
+        projects.flatMap { project in
+            let claude = project.root.appending(path: ".claude", directoryHint: .isDirectory)
+            return [claude.appending(path: "skills", directoryHint: .isDirectory),
+                    claude.appending(path: "settings.json"),
+                    claude.appending(path: "settings.local.json")]
+        }
+    }
+
+    /// `includeProjects: false` skips everything that can trigger macOS
+    /// folder-access prompts, until the user has seen the first-run note (spec §5.5).
+    public static func load(paths: ClaudePaths, addedFolders: [URL] = [], includeProjects: Bool = true) -> Inventory {
         let enabled = SettingsReader.enabledPlugins(settingsFile: paths.settingsFile)
         let lock = SkillLock.load(file: paths.agentsLockFile)
         let personal = SkillScanner.scan(directory: paths.personalSkillsDir, source: .personal, lock: lock, lockScope: paths.sharedSkillsDir)
@@ -32,10 +54,58 @@ public struct Inventory: Sendable {
             !personalResolved.contains($0.directory.resolvingSymlinksInPath().path)
         }
 
-        return Inventory(
+        var inv = Inventory(
             personalSkills: personal.skills,
             sharedSkills: unconnectedShared,
             plugins: pluginResult.plugins,
             issues: personal.issues + shared.issues + pluginResult.issues)
+
+        // Claude account + Cowork plugins: the desktop app's own folder, no prompts.
+        let account = AccountSkills.load(dir: paths.accountSkillsDir)
+        inv.accountSkills = account.skills
+        inv.accountLastSynced = account.lastSynced
+        inv.issues += account.issues
+        let cowork = CoworkPlugins.load(sessionsDir: paths.coworkSessionsDir)
+        inv.coworkPlugins = cowork.plugins
+        inv.issues += cowork.issues
+
+        // Added folders: projects vs. notes.
+        var addedProjects: [URL] = []
+        for folder in addedFolders {
+            switch NoteFolders.classify(folder) {
+            case .project: addedProjects.append(folder)
+            case .notes: if let n = NoteFolders.load(folder) { inv.notes.append(n) }
+            case .neither:
+                inv.issues.append(ParseIssue(location: folder,
+                    detail: "This added folder no longer has Claude skills or markdown files."))
+            }
+        }
+
+        // A folder the user explicitly added has already been granted access —
+        // it can't trigger a new macOS prompt, so it loads even when
+        // includeProjects is false. Only ~/.claude.json and the session files
+        // (which enumerate folders the user hasn't necessarily unlocked yet)
+        // are gated by the flag.
+        if includeProjects {
+            let discovery = ProjectSources.discover(paths: paths, addedProjects: addedProjects)
+            inv.projects = discovery.projects
+            inv.issues += discovery.issues
+        } else {
+            inv.projects = ProjectSources.normalize(addedProjects.map(\.path), home: paths.home)
+        }
+        // A project inside another project (~/Claude/Portfolio inside ~/Claude)
+        // is scanned once, as itself — not again by the outer project's nested walk.
+        let projectRoots = Set(inv.projects.map { Canonical.path($0.root.path) })
+        for project in inv.projects {
+            let scan = ProjectScanner.scan(project, paths: paths, otherProjectRoots: projectRoots)
+            inv.projectSkills += scan.skills
+            inv.projectPlugins += scan.plugins
+            inv.issues += scan.issues
+        }
+
+        inv.library = Library.build(
+            personal: inv.personalSkills, project: inv.projectSkills, account: inv.accountSkills,
+            plugins: inv.plugins + inv.projectPlugins + inv.coworkPlugins, projects: inv.projects)
+        return inv
     }
 }

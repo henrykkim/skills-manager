@@ -1,10 +1,14 @@
 import Foundation
 
-/// Where a skill lives. Later plans add project and cloud sources.
+/// Where a skill lives.
 public enum SkillSource: Sendable, Hashable {
     case personal                       // ~/.claude/skills
     case shared                         // ~/.agents/skills
     case plugin(pluginID: String)       // e.g. "superpowers@claude-plugins-official"
+    /// <root>/.claude/skills, or <root>/<subpath>/.claude/skills for nested ones.
+    case project(root: URL, subpath: String?)
+    /// Synced from the user's Claude account. userMade false = built in by Anthropic.
+    case account(userMade: Bool)
 }
 
 public struct Skill: Identifiable, Sendable, Hashable {
@@ -24,12 +28,14 @@ public struct Skill: Identifiable, Sendable, Hashable {
     public let sourceLabel: String?     // "owner/repo"
     public let installedAt: Date?
     public let updatedAt: Date?         // views fall back to lastModified when nil
+    /// False only for Claude-account skills turned off in Claude's settings.
+    public let isEnabled: Bool
 
     public init(folderName: String, displayName: String, summary: String?, argumentHint: String?,
                 userInvocable: Bool, modelInvocable: Bool, whenToUse: String?,
                 source: SkillSource, directory: URL, lastModified: Date?,
                 sourceURL: URL? = nil, sourceLabel: String? = nil,
-                installedAt: Date? = nil, updatedAt: Date? = nil) {
+                installedAt: Date? = nil, updatedAt: Date? = nil, isEnabled: Bool = true) {
         self.folderName = folderName
         self.displayName = displayName
         self.summary = summary
@@ -44,6 +50,7 @@ public struct Skill: Identifiable, Sendable, Hashable {
         self.sourceLabel = sourceLabel
         self.installedAt = installedAt
         self.updatedAt = updatedAt
+        self.isEnabled = isEnabled
     }
 }
 
