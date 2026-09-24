@@ -113,6 +113,7 @@ struct LibraryView: View {
                             }
                         } label: {
                             PluginRow(entry: entry).tag(LibrarySelection.plugin(entry.id))
+                                .contextMenu { removeAddedProjectItems(roots: projectRoots(of: entry)) }
                         }
                     }
                 }
@@ -121,6 +122,7 @@ struct LibraryView: View {
                 Section("Skills") {
                     ForEach(filteredSkills) { entry in
                         SkillEntryRow(entry: entry).tag(LibrarySelection.entry(entry.id))
+                            .contextMenu { removeAddedProjectItems(roots: projectRoots(of: entry)) }
                     }
                 }
             }
@@ -267,7 +269,9 @@ struct LibraryView: View {
                 missingSelection
             }
         case .needsAttention:
-            NeedsAttentionView(issues: store.inventory.issues)
+            NeedsAttentionView(issues: store.inventory.issues,
+                               removableFolders: Set(store.addedFolders.map(\.path)),
+                               onRemove: { store.removeFolder($0) })
         case nil:
             ContentUnavailableView(
                 "Select an Item",
@@ -293,6 +297,34 @@ struct LibraryView: View {
             "Item No Longer Exists",
             systemImage: "questionmark.folder",
             description: Text("It changed on disk — pick another item."))
+    }
+
+    // MARK: Removing hand-added projects
+
+    /// Project folders a row's copies live in.
+    private func projectRoots(of entry: SkillEntry) -> [URL] {
+        entry.locations.compactMap {
+            if case .project(let root, _) = $0.skill.source { return root }
+            return nil
+        }
+    }
+
+    private func projectRoots(of entry: PluginEntry) -> [URL] {
+        entry.locations.compactMap {
+            if case .project(let root) = $0.plugin.scope { return root }
+            return nil
+        }
+    }
+
+    /// Only folders the user added by hand can be removed — the rest come
+    /// from Claude's own records. Removing never touches the disk.
+    @ViewBuilder
+    private func removeAddedProjectItems(roots: [URL]) -> some View {
+        let added = Set(store.addedFolders.map(\.path))
+        let rootPaths = Set(roots.map(\.path))
+        ForEach(store.inventory.projects.filter { added.contains($0.root.path) && rootPaths.contains($0.root.path) }) { project in
+            Button("Remove “\(project.displayName)” from Skills Manager") { store.removeFolder(project.root) }
+        }
     }
 
     // MARK: Filtering

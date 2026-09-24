@@ -4,6 +4,9 @@ import SkillsManagerCore
 
 struct NeedsAttentionView: View {
     let issues: [ParseIssue]
+    /// Paths of folders the user added by hand; their issues get a Remove action.
+    var removableFolders: Set<String> = []
+    var onRemove: (URL) -> Void = { _ in }
 
     var body: some View {
         ScrollView {
@@ -29,6 +32,11 @@ struct NeedsAttentionView: View {
                                 NSWorkspace.shared.activateFileViewerSelecting([issue.location])
                             }
                             .buttonStyle(.link)
+                            if removableFolders.contains(issue.location.path) {
+                                Button("Remove from Skills Manager") { onRemove(issue.location) }
+                                    .buttonStyle(.link)
+                                    .help("Skills Manager stops showing this folder. Nothing on disk changes.")
+                            }
                         }
                     }
                 }
