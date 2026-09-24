@@ -47,6 +47,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           xcodegen generate
+          # CURRENT_PROJECT_VERSION comes from GITHUB_RUN_NUMBER and Sparkle compares
+          # it to decide what's newer; renaming/recreating this workflow resets the
+          # counter and would stop updates reaching existing installs.
           xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
             -configuration Release -derivedDataPath build \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
@@ -100,11 +103,10 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          SPARKLE_VERSION=$(sed -nE '/sparkle-project\/Sparkle/,/exactVersion/ s/.*exactVersion: *([0-9.]+).*/\1/p' project.yml)
-          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" -o "$RUNNER_TEMP/sparkle.tar.xz"
-          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xJf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          SIGN_UPDATE="build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
+          [ -x "$SIGN_UPDATE" ] || { echo "::error::sign_update not found in the SwiftPM Sparkle artifact"; exit 1; }
           DMG="SkillsManager-$VERSION.dmg"
-          SIGN_OUT=$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file - "$DMG")
+          SIGN_OUT=$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" --ed-key-file - "$DMG")
           scripts/make-appcast.sh --version "$VERSION" --build "$GITHUB_RUN_NUMBER" \
             --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/$DMG" \
             --sign-output "$SIGN_OUT" --notes "release-notes/$VERSION.md" --out appcast.xml

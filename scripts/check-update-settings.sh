@@ -11,6 +11,7 @@ fail() { echo "✗ $1"; exit 1; }
 
 [[ "$(pb SUFeedURL)" == "$FEED" ]] || fail "SUFeedURL is '$(pb SUFeedURL)'"
 [[ "$(pb SUAutomaticallyUpdate)" == "false" ]] || fail "SUAutomaticallyUpdate is '$(pb SUAutomaticallyUpdate)' (want false)"
+[[ "$(pb SUAllowsAutomaticUpdates)" == "false" ]] || fail "SUAllowsAutomaticUpdates is '$(pb SUAllowsAutomaticUpdates)' (want false)"
 [[ "$(pb SUEnableAutomaticChecks)" == "$EXPECT_CHECKS" ]] || fail "SUEnableAutomaticChecks is '$(pb SUEnableAutomaticChecks)' (want $EXPECT_CHECKS)"
 KEY="$(pb SUPublicEDKey)"
 [[ "$KEY" != "<missing>" ]] || fail "SUPublicEDKey is missing"

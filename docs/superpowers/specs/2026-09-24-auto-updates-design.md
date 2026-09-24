@@ -69,9 +69,10 @@ and a window that offers new versions.
 ## 5. App changes
 
 - **Dependency:** Sparkle 2 via SPM in `project.yml`
-  (`https://github.com/sparkle-project/Sparkle`, from `2.6.0`), linked to the
-  app target. Xcode embeds and signs `Sparkle.framework`. The app isn't
-  sandboxed, so no installer XPC services or extra entitlements are needed.
+  (`https://github.com/sparkle-project/Sparkle`, pinned with
+  `exactVersion 2.10.0`), linked to the app target. Xcode embeds and signs
+  `Sparkle.framework`. The app isn't sandboxed, so no installer XPC services
+  or extra entitlements are needed.
 - **Updater object:** one `SPUStandardUpdaterController` owned by the app,
   created at launch with `startingUpdater: true`.
 - **Menu:** a `CommandGroup(after: .appInfo)` button bound to
@@ -85,6 +86,7 @@ and a window that offers new versions.
 | `SUPublicEDKey` | the owner's public EdDSA key (base64) |
 | `SUEnableAutomaticChecks` | `$(SU_AUTOMATIC_CHECKS)` |
 | `SUAutomaticallyUpdate` | `NO` |
+| `SUAllowsAutomaticUpdates` | `NO` |
 
 - **Local builds have checks off:** `project.yml` defines the build setting
   `SU_AUTOMATIC_CHECKS: NO`. The release workflow passes
@@ -125,11 +127,14 @@ installs. Users would need one manual update to a build that trusts a new key.
 In order, after the existing "Notarize and staple" step and before "Publish
 release":
 
-1. **Fetch Sparkle tools:** download the Sparkle release archive matching the
-   SPM version and use its `bin/sign_update`.
-2. **Sign the DMG:** run `sign_update` on the stapled DMG with the private key
-   from `SPARKLE_PRIVATE_KEY` (passed through stdin or a temp file that's
-   deleted afterwards). Capture `sparkle:edSignature` and `length`.
+1. **Use the SwiftPM Sparkle tools:** Build already resolved and
+   checksum-verified Sparkle 2.10.0 via SPM (Build uses
+   `-derivedDataPath build`), so `sign_update` is already on disk at
+   `build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update`. No
+   separate download.
+2. **Sign the DMG:** run that `sign_update` on the stapled DMG with the
+   private key from `SPARKLE_PRIVATE_KEY` (passed through stdin, never a
+   file). Capture `sparkle:edSignature` and `length`.
 3. **Write `appcast.xml`:** a single-item RSS feed with:
    - `sparkle:version` = the build number (`GITHUB_RUN_NUMBER`)
    - `sparkle:shortVersionString` = `X.Y.Z`
@@ -142,12 +147,19 @@ release":
 4. **Verify before publishing:**
    - `xmllint --noout appcast.xml` succeeds.
    - The DMG's signature verifies against the public key taken from the built
-     app's `Info.plist` (`sign_update --verify`). This catches a secret or key
-     mismatch.
+     app's `Info.plist` `SUPublicEDKey`, using
+     `scripts/verify-update-signature.swift` (CryptoKit). This catches a
+     secret or key mismatch.
 
    If either check fails, the release stops and nothing is published.
 5. **Publish:** `gh release create` also attaches `appcast.xml`. The existing
    GitHub-generated notes stay on the release page for developers.
+
+Before packaging, a "Re-sign Sparkle for notarization" step re-signs
+`Sparkle.framework`'s nested executables (Installer.xpc, Downloader.xpc,
+Autoupdate, Updater.app) and the framework itself with the Developer ID
+identity, then re-verifies the whole app — Xcode's own signature on the SPM
+framework doesn't survive notarization's stricter checks otherwise.
 
 The build number stays `GITHUB_RUN_NUMBER`, which only increases, so Sparkle's
 version comparison always sees newer releases as newer.
@@ -206,6 +218,6 @@ still bumped by hand each release.
   counts as latest, so a failed or draft release is never offered. The
   appcast lists only the newest version, which is fine because Sparkle
   updates from any older version straight to it.
-- **Sparkle version drift:** the CI tools version must match the SPM version.
-  Both are pinned together in one place: the workflow reads the version that
-  SPM resolved in `Package.resolved`.
+- **Sparkle version drift:** the CI `sign_update` tool comes from the same
+  SwiftPM artifact as the embedded `Sparkle.framework`, so the two can never
+  drift apart. Both are pinned by the single `exactVersion` in `project.yml`.
