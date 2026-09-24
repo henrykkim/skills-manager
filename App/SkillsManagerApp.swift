@@ -16,6 +16,8 @@ struct SkillsManagerApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("Install…") { NotificationCenter.default.post(name: .showInstallSheet, object: nil) }
                     .keyboardShortcut("n")
+                Button("Add Folder…") { NotificationCenter.default.post(name: .showAddFolder, object: nil) }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Refresh") { store.reload() }

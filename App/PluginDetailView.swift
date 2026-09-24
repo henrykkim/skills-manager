@@ -3,6 +3,7 @@ import SkillsManagerCore
 
 struct PluginDetailView: View {
     let plugin: Plugin
+    let entry: PluginEntry?  // Task 10 stub
 
     var body: some View {
         ScrollView {

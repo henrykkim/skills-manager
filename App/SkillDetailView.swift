@@ -5,6 +5,9 @@ import SkillsManagerCore
 struct SkillDetailView: View {
     let skill: Skill
     let parentPlugin: Plugin?
+    // Task 10 stubs: wired up by the detail-view task.
+    let entry: SkillEntry?
+    let accountLastSynced: Date?
 
     var body: some View {
         ScrollView {

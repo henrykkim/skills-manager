@@ -18,6 +18,12 @@ public struct NoteFolder: Sendable, Hashable, Identifiable {
     public let url: URL
     public let name: String
     public let files: [NoteFile]
+
+    public init(url: URL, name: String, files: [NoteFile]) {
+        self.url = url
+        self.name = name
+        self.files = files
+    }
 }
 
 /// User-added markdown folders (spec §5.3–5.4). Not skills; Claude doesn't
