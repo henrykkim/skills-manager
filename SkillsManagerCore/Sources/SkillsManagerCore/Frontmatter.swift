@@ -39,7 +39,17 @@ public enum FrontmatterParser {
         let yamlText = lines[1..<closeIndex].joined(separator: "\n")
         let body = lines[(closeIndex + 1)...].joined(separator: "\n")
         do {
-            guard let dict = try Yams.load(yaml: yamlText) as? [String: Any] else {
+            // Claude accepts headers strict YAML rejects, e.g. a plain value
+            // containing ": " ("Triggers on: size charts"). Retry once with
+            // such values quoted before calling the header broken.
+            let loaded: Any?
+            do {
+                loaded = try Yams.load(yaml: yamlText)
+            } catch {
+                guard let retried = try? Yams.load(yaml: quotingPlainValues(yamlText)) else { throw error }
+                loaded = retried
+            }
+            guard let dict = loaded as? [String: Any] else {
                 return .malformed(reason: "The header is not a list of key: value fields")
             }
             var fm = Frontmatter()
@@ -53,6 +63,24 @@ public enum FrontmatterParser {
         } catch {
             return .malformed(reason: "The header isn't valid YAML: \(String(describing: error))")
         }
+    }
+
+    /// Wraps each top-level `key: value` whose value is a plain one-line
+    /// scalar in double quotes. Values that start YAML syntax (quotes, [ { | >
+    /// & * ! # @ `) and indented continuation lines are left alone, so
+    /// genuinely broken headers stay broken.
+    static func quotingPlainValues(_ yaml: String) -> String {
+        yaml.components(separatedBy: "\n").map { line in
+            guard let first = line.first, first.isLetter || first == "_",
+                  let sep = line.range(of: ": ") else { return line }
+            let key = line[..<sep.lowerBound]
+            guard key.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { return line }
+            let value = line[sep.upperBound...].trimmingCharacters(in: .whitespaces)
+            guard let v = value.first, !"\"'[{|>&*!#@`".contains(v) else { return line }
+            let escaped = value.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+            return "\(key): \"\(escaped)\""
+        }.joined(separator: "\n")
     }
 
     private static func boolValue(_ raw: Any?) -> Bool? {
