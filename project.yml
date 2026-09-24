@@ -6,6 +6,9 @@ options:
 packages:
   SkillsManagerCore:
     path: SkillsManagerCore
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -14,6 +17,11 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_HARDENED_RUNTIME: YES
+    # Automatic updates (Sparkle). The release workflow sets
+    # SU_AUTOMATIC_CHECKS=YES; local builds never check on their own.
+    SU_FEED_URL: "https://github.com/henrykkim/skills-manager/releases/latest/download/appcast.xml"
+    SPARKLE_PUBLIC_KEY: ""
+    SU_AUTOMATIC_CHECKS: "NO"
   configs:
     Debug:
       CODE_SIGN_IDENTITY: "-"
@@ -31,6 +39,7 @@ targets:
     sources: [App]
     dependencies:
       - package: SkillsManagerCore
+      - package: Sparkle
       - sdk: FoundationModels.framework
         weak: true
     info:
@@ -42,6 +51,10 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: ""
+        SUFeedURL: "$(SU_FEED_URL)"
+        SUPublicEDKey: "$(SPARKLE_PUBLIC_KEY)"
+        SUEnableAutomaticChecks: "$(SU_AUTOMATIC_CHECKS)"
+        SUAutomaticallyUpdate: false
 schemes:
   SkillsManager:
     build:
