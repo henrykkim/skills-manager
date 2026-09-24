@@ -5,7 +5,6 @@ import SkillsManagerCore
 struct SkillDetailView: View {
     let skill: Skill
     let parentPlugin: Plugin?
-    // Task 10 stubs: wired up by the detail-view task.
     let entry: SkillEntry?
     let accountLastSynced: Date?
 
@@ -23,6 +22,11 @@ struct SkillDetailView: View {
                     Text(Invocation.availabilityLabel(for: skill))
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                }
+
+                if let entry {
+                    WhereItWorksSection(lines: WhereItWorks.lines(
+                        for: entry, lastSynced: accountLastSynced, home: ClaudePaths().home))
                 }
 
                 if let whenToUse = skill.whenToUse {
