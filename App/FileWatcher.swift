@@ -14,10 +14,11 @@ final class FileWatcher: @unchecked Sendable {
     private var stream: FSEventStreamRef?
     private let debouncer: Debouncer
     private let queue = DispatchQueue(label: "com.henrykkim.skillsmanager.fsevents")
-    private let targetPrefixes: [String]
+    /// Only touched on `queue` (FSEvents callbacks run there; setTargets hops there).
+    private var targetPrefixes: [String]
 
-    init(root: URL, targets: [URL], onChange: @escaping @Sendable () -> Void) {
-        debouncer = Debouncer(delay: 1.0, queue: .main, action: onChange)
+    init(root: URL, targets: [URL], delay: TimeInterval = 1.0, onChange: @escaping @Sendable () -> Void) {
+        debouncer = Debouncer(delay: delay, queue: .main, action: onChange)
         // FSEvents delivers canonical paths (realpath-style, e.g. /private/tmp/…).
         // Foundation's resolvingSymlinksInPath() is NOT canonical — it strips
         // /private, so /tmp-rooted watches would silently never match. Use
@@ -50,6 +51,12 @@ final class FileWatcher: @unchecked Sendable {
             FSEventStreamSetDispatchQueue(stream, queue)
             FSEventStreamStart(stream)
         }
+    }
+
+    /// Replaces the watched targets (project folders come and go between loads).
+    func setTargets(_ targets: [URL]) {
+        let prefixes = targets.map(Self.canonicalize)
+        queue.async { [self] in targetPrefixes = prefixes }
     }
 
     /// True canonical path via realpath(3) — resolvingSymlinksInPath() strips
