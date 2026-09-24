@@ -57,3 +57,18 @@ import Testing
         .heading(level: 2, text: "Done"),
     ])
 }
+
+@Test func markdownBlocksHandleCRLFLineEndings() {
+    let md = "# T\r\nline one\r\nline two\r\n```\r\na\r\nb\r\n```"
+    #expect(MarkdownBlocks.parse(md) == [
+        .heading(level: 1, text: "T"),
+        .paragraph("line one line two"),
+        .code("a\nb"),
+    ])
+}
+
+@Test func markdownBlocksHandleAdversarialLines() {
+    #expect(MarkdownBlocks.parse("#") == [.paragraph("#")])
+    #expect(MarkdownBlocks.parse("1.") == [.paragraph("1.")])
+    #expect(MarkdownBlocks.parse("```\ncode") == [.code("code")])
+}

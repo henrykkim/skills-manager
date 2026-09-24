@@ -12,7 +12,9 @@ public enum MarkdownBlock: Sendable, Hashable {
 /// styling (bold, links, `code`) is left to AttributedString in the view.
 public enum MarkdownBlocks {
     public static func parse(_ text: String) -> [MarkdownBlock] {
-        var lines = text.components(separatedBy: .newlines)
+        let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        var lines = normalized.components(separatedBy: "\n")
         // Drop a leading frontmatter block.
         if lines.first?.trimmingCharacters(in: .whitespaces) == "---",
            let end = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }) {
