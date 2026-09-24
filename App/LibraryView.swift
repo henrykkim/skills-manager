@@ -20,6 +20,7 @@ struct LibraryView: View {
     @State private var expandedNotes: Set<String> = []
     @State private var addFolderMessage: String?
     @State private var showInstall = false
+    @State private var dismissedAccessNote = false
     @State private var installModel = InstallSheetModel(
         paths: ClaudePaths(), github: URLSessionGitHubClient(),
         guesser: FoundationModelsGuesser.isAvailable ? FoundationModelsGuesser() : NoopGuesser(),
@@ -42,6 +43,13 @@ struct LibraryView: View {
         }
         .sheet(isPresented: $showInstall) {
             InstallSheet(model: installModel) { showInstall = false }
+        }
+        .sheet(isPresented: Binding(
+            get: { store.needsProjectAccessNote && !dismissedAccessNote },
+            set: { if !$0 { dismissedAccessNote = true } })) {
+            ProjectAccessSheet(
+                onContinue: { store.acknowledgeProjectAccess() },
+                onLater: { dismissedAccessNote = true })
         }
         .onReceive(NotificationCenter.default.publisher(for: .showInstallSheet)) { _ in showInstall = true }
         .onDrop(of: [.url, .plainText], isTargeted: nil) { providers in
