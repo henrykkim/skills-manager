@@ -27,7 +27,6 @@ final class InventoryStore {
     /// Idempotent: first call loads and starts watching; later calls are no-ops.
     func start() {
         guard watcher == nil else { return }
-        reload()
         // Skills, plugins, settings, ~/.agents, Claude-account skills, and (after
         // each load) every project's .claude folder. 1 s debounce.
         watcher = FileWatcher(root: paths.home, targets: baseTargets) { [weak self] in
@@ -42,6 +41,9 @@ final class InventoryStore {
         ) { [weak self] in
             Task { @MainActor in self?.reload() }
         }
+        // Watchers exist before the first reload so its setTargets call (with
+        // the freshly-discovered projects' .claude folders) isn't dropped.
+        reload()
     }
 
     private var baseTargets: [URL] {
@@ -91,7 +93,8 @@ final class InventoryStore {
 
     /// Forgets the folder. Never touches the disk.
     func removeFolder(_ url: URL) {
-        addedFolders.removeAll { $0.path == url.path }
+        let canonical = Canonical.url(url)
+        addedFolders.removeAll { $0.path == canonical.path }
         saveAddedFolders()
         reload()
     }
