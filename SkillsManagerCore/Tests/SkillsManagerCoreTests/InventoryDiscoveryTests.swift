@@ -38,7 +38,10 @@ private func makeHome() throws -> (TempTree, ClaudePaths) {
     #expect(tagsByID["skill:brand-voice"] == [.project(name: "Portfolio")])
     #expect(tagsByID["skill:shared-name"] == [.global, .project(name: "Portfolio")])
     #expect(tagsByID["account:voice"] == [.account])
-    #expect(inv.projectWatchTargets.count == 2)
+    // Skills folder + both settings files per project — not the whole .claude
+    // folder, whose worktrees/ churn on every build.
+    #expect(inv.projectWatchTargets.count == 6)
+    #expect(Set(inv.projectWatchTargets.map(\.lastPathComponent)) == ["skills", "settings.json", "settings.local.json"])
 }
 
 @Test func addedProjectFolderJoinsProjects() throws {

@@ -28,7 +28,7 @@ final class InventoryStore {
     func start() {
         guard watcher == nil else { return }
         // Skills, plugins, settings, ~/.agents, Claude-account skills, and (after
-        // each load) every project's .claude folder. 1 s debounce.
+        // each load) every project's skills folder and settings files. 1 s debounce.
         watcher = FileWatcher(root: paths.home, targets: baseTargets) { [weak self] in
             Task { @MainActor in self?.reload() }
         }
@@ -42,7 +42,7 @@ final class InventoryStore {
             Task { @MainActor in self?.reload() }
         }
         // Watchers exist before the first reload so its setTargets call (with
-        // the freshly-discovered projects' .claude folders) isn't dropped.
+        // the freshly-discovered projects' watch targets) isn't dropped.
         reload()
     }
 

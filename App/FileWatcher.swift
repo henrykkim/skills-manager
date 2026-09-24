@@ -71,12 +71,10 @@ final class FileWatcher: @unchecked Sendable {
         return canonicalize(parent) + "/" + url.lastPathComponent
     }
 
-    /// An event is relevant if it happened under a target, or at/above one
-    /// (a parent-directory event may mean the target itself appeared).
+    /// An event is relevant if it happened in or under a target, or in a
+    /// target's direct parent (the target itself may have just appeared).
     private func isRelevant(_ eventPath: String) -> Bool {
-        targetPrefixes.contains { target in
-            eventPath.hasPrefix(target) || target.hasPrefix(eventPath)
-        }
+        targetPrefixes.contains { WatchMatch.isRelevant(eventPath: eventPath, target: $0) }
     }
 
     deinit {

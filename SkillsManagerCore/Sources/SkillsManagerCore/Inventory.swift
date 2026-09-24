@@ -24,9 +24,16 @@ public struct Inventory: Sendable {
         self.issues = issues
     }
 
-    /// Each project's .claude folder, for the file watcher.
+    /// What each project contributes, for the file watcher: its skills folder
+    /// and both settings files — not the whole .claude folder, whose
+    /// worktrees/ change on every edit and build.
     public var projectWatchTargets: [URL] {
-        projects.map { $0.root.appending(path: ".claude", directoryHint: .isDirectory) }
+        projects.flatMap { project in
+            let claude = project.root.appending(path: ".claude", directoryHint: .isDirectory)
+            return [claude.appending(path: "skills", directoryHint: .isDirectory),
+                    claude.appending(path: "settings.json"),
+                    claude.appending(path: "settings.local.json")]
+        }
     }
 
     /// `includeProjects: false` skips everything that can trigger macOS
