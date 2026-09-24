@@ -133,7 +133,8 @@ public struct Library: Sendable {
             let primary = copies.first { $0.source == .personal }
                 ?? copies.min { orderKey($0) < orderKey($1) }!
             let hasGlobal = primary.source == .personal
-            let primaryData = skillData(primary)
+            // Only read SKILL.md when there's another copy to compare against.
+            let primaryData = copies.count > 1 ? skillData(primary) : nil
             let locations = copies.map { copy in
                 SkillLocation(skill: copy, tag: tag(for: copy),
                               isIgnored: hasGlobal && copy.source != .personal,

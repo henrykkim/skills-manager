@@ -41,15 +41,17 @@ struct LibraryView: View {
                     .help("Install a skill or plugin from a link or command")
             }
         }
-        .sheet(isPresented: $showInstall) {
-            InstallSheet(model: installModel) { showInstall = false }
-        }
-        .sheet(isPresented: Binding(
-            get: { store.needsProjectAccessNote && !dismissedAccessNote },
-            set: { if !$0 { dismissedAccessNote = true } })) {
-            ProjectAccessSheet(
-                onContinue: { store.acknowledgeProjectAccess() },
-                onLater: { dismissedAccessNote = true })
+        // One sheet modifier: two on the same view can't present at once, so
+        // ⌘N during the first-run note would silently do nothing.
+        .sheet(item: activeSheet) { sheet in
+            switch sheet {
+            case .install:
+                InstallSheet(model: installModel) { showInstall = false }
+            case .projectAccess:
+                ProjectAccessSheet(
+                    onContinue: { store.acknowledgeProjectAccess() },
+                    onLater: { dismissedAccessNote = true })
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showInstallSheet)) { _ in showInstall = true }
         .onDrop(of: [.url, .plainText], isTargeted: nil) { providers in
@@ -67,6 +69,26 @@ struct LibraryView: View {
             }
             return true
         }
+    }
+
+    private enum ActiveSheet: Identifiable {
+        case install, projectAccess
+        var id: Self { self }
+    }
+
+    /// Install wins while it's open; the first-run note shows until Continue
+    /// or Not Now (Not Now lasts for this launch).
+    private var activeSheet: Binding<ActiveSheet?> {
+        Binding(
+            get: {
+                if showInstall { return .install }
+                if store.needsProjectAccessNote && !dismissedAccessNote { return .projectAccess }
+                return nil
+            },
+            set: { newValue in
+                guard newValue == nil else { return }
+                if showInstall { showInstall = false } else { dismissedAccessNote = true }
+            })
     }
 
     private var sidebar: some View {

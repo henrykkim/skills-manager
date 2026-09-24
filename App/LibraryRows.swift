@@ -26,6 +26,8 @@ struct SkillEntryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Spacing.xs) {
                     Text(entry.skill.displayName)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     if !entry.skill.isEnabled {
                         // Same word the plugin rows use (StatusDot).
                         Text("Disabled").font(.caption2).foregroundStyle(.secondary)

@@ -84,7 +84,7 @@ final class InventoryStore {
         let kind = NoteFolders.classify(url)
         guard kind != .neither else { return kind }
         let canonical = Canonical.url(url)
-        guard !addedFolders.contains(canonical) else { return kind }
+        guard !addedFolders.contains(where: { $0.path == canonical.path }) else { return kind }
         addedFolders.append(canonical)
         saveAddedFolders()
         reload()
