@@ -93,8 +93,11 @@ public struct Inventory: Sendable {
         } else {
             inv.projects = ProjectSources.normalize(addedProjects.map(\.path), home: paths.home)
         }
+        // A project inside another project (~/Claude/Portfolio inside ~/Claude)
+        // is scanned once, as itself — not again by the outer project's nested walk.
+        let projectRoots = Set(inv.projects.map { Canonical.path($0.root.path) })
         for project in inv.projects {
-            let scan = ProjectScanner.scan(project, paths: paths)
+            let scan = ProjectScanner.scan(project, paths: paths, otherProjectRoots: projectRoots)
             inv.projectSkills += scan.skills
             inv.projectPlugins += scan.plugins
             inv.issues += scan.issues

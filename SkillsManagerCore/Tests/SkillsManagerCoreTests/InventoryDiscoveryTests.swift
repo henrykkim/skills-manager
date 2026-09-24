@@ -91,3 +91,23 @@ private func makeHome() throws -> (TempTree, ClaudePaths) {
     #expect(!inv.projects.contains { $0.displayName == "Portfolio" || $0.displayName == "CoworkThing" })
     #expect(inv.issues.isEmpty)
 }
+
+@Test func projectInsideAnotherProjectIsScannedOnce() throws {
+    let t = try TempTree(); defer { t.remove() }
+    let home = try t.mkdir("home")
+    let outer = try t.mkdir("home/Claude")
+    let inner = try t.mkdir("home/Claude/Portfolio")
+    try t.skill("pf", in: "home/Claude/Portfolio/.claude/skills")
+    try t.write(#"{"projects": {"\#(outer.path)": {}, "\#(inner.path)": {}}}"#, to: "home/.claude.json")
+
+    let inv = Inventory.load(paths: ClaudePaths(home: home))
+    #expect(inv.projects.map(\.displayName) == ["Claude", "Portfolio"])
+    let entry = try #require(inv.library.skills.first { $0.id == "skill:pf" })
+    #expect(entry.locations.count == 1)
+    #expect(entry.tags == [.project(name: "Portfolio")])
+    guard case .project(let root, let subpath) = entry.skill.source else {
+        Issue.record("expected a project skill"); return
+    }
+    #expect(root.path == inner.path && subpath == nil)
+    #expect(entry.locations[0].isIgnored == false)
+}

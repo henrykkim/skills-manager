@@ -11,11 +11,14 @@ public enum ProjectScanner {
     public static let maxDepth = 4
     public static let skippedFolders: Set<String> = ["node_modules", ".git", ".build", "DerivedData", "Pods", "vendor"]
 
-    public static func scan(_ project: Project, paths: ClaudePaths) -> ProjectScanResult {
+    /// `otherProjectRoots`: canonical roots of every discovered project. A
+    /// subfolder that is itself a project is left to its own scan.
+    public static func scan(_ project: Project, paths: ClaudePaths,
+                            otherProjectRoots: Set<String> = []) -> ProjectScanResult {
         var result = ProjectScanResult()
         let dirs: [(dir: URL, subpath: String?)]
         do {
-            dirs = try skillDirectories(in: project.root)
+            dirs = try skillDirectories(in: project.root, excludingRoots: otherProjectRoots)
         } catch {
             result.issues.append(ParseIssue(
                 location: project.root,
@@ -50,8 +53,10 @@ public enum ProjectScanner {
 
     /// `.claude/skills` folders in the project root and in subfolders up to
     /// `maxDepth` levels down. Only folder names are checked; nothing is read.
+    /// Subfolders whose canonical path is in `excludingRoots` (other discovered
+    /// projects) are skipped and not descended into.
     /// Throws only when the project root itself can't be listed.
-    public static func skillDirectories(in root: URL) throws -> [(dir: URL, subpath: String?)] {
+    public static func skillDirectories(in root: URL, excludingRoots: Set<String> = []) throws -> [(dir: URL, subpath: String?)] {
         let fm = FileManager.default
         func skillsDir(_ folder: URL) -> URL? {
             let d = folder.appending(path: ".claude/skills", directoryHint: .isDirectory)
@@ -63,6 +68,7 @@ public enum ProjectScanner {
                                        options: [.skipsHiddenFiles])
                 .filter { url in
                     guard !skippedFolders.contains(url.lastPathComponent),
+                          !excludingRoots.contains(Canonical.path(url.path)),
                           let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else { return false }
                     return v.isDirectory == true && v.isSymbolicLink != true   // no symlink loops
                 }

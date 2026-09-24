@@ -72,3 +72,15 @@ import Testing
     #expect(r.issues.count == 1)
     #expect(r.issues[0].detail.contains("System Settings"))
 }
+
+@Test func nestedWalkSkipsFoldersThatAreProjectsThemselves() throws {
+    let t = try TempTree(); defer { t.remove() }
+    let root = try t.mkdir("A")
+    let inner = try t.mkdir("A/B")
+    try t.skill("b-skill", in: "A/B/.claude/skills")
+    try t.skill("deeper", in: "A/B/sub/.claude/skills")   // belongs to B's own scan
+    try t.skill("web", in: "A/web/.claude/skills")
+
+    let dirs = try ProjectScanner.skillDirectories(in: root, excludingRoots: [inner.path])
+    #expect(dirs.map { $0.subpath ?? "<root>" } == ["web"])
+}
