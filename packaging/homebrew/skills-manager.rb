@@ -10,6 +10,8 @@ cask "skills-manager" do
   homepage "https://github.com/henrykkim/skills-manager"
 
   depends_on macos: ">= :sonoma"
+  # Sparkle updates the app in place; brew shouldn't fight it.
+  auto_updates true
 
   app "Skills Manager.app"
 

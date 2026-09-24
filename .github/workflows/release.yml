@@ -13,6 +13,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES="release-notes/$VERSION.md"
+          if [ ! -s "$NOTES" ]; then
+            echo "::error::$NOTES is missing or empty. Add plain-English release notes before tagging."
+            exit 1
+          fi
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -41,10 +50,26 @@ jobs:
           xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
             -configuration Release -derivedDataPath build \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            SU_AUTOMATIC_CHECKS=YES \
             CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="$TEAM_ID" \
             OTHER_CODE_SIGN_FLAGS="--timestamp" build
           codesign --verify --deep --strict --verbose=2 "build/Build/Products/Release/Skills Manager.app"
+          scripts/check-update-settings.sh "build/Build/Products/Release/Skills Manager.app" YES
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Re-sign Sparkle for notarization
+        run: |
+          APP="build/Build/Products/Release/Skills Manager.app"
+          FW="$APP/Contents/Frameworks/Sparkle.framework"
+          ID="Developer ID Application"
+          SIGN=(codesign -f -s "$ID" -o runtime --timestamp)
+          "${SIGN[@]}" "$FW/Versions/B/XPCServices/Installer.xpc"
+          "${SIGN[@]}" --preserve-metadata=entitlements "$FW/Versions/B/XPCServices/Downloader.xpc"
+          "${SIGN[@]}" "$FW/Versions/B/Autoupdate"
+          "${SIGN[@]}" "$FW/Versions/B/Updater.app"
+          "${SIGN[@]}" "$FW"
+          "${SIGN[@]}" --preserve-metadata=entitlements "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
 
       - name: Package DMG
         run: scripts/make-dmg.sh "build/Build/Products/Release/Skills Manager.app" "SkillsManager-$VERSION.dmg"
@@ -71,10 +96,27 @@ jobs:
           xcrun stapler staple "SkillsManager-$VERSION.dmg"
           rm "$RUNNER_TEMP/AuthKey.p8"
 
+      - name: Sign update and write appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          SPARKLE_VERSION=$(sed -nE '/sparkle-project\/Sparkle/,/exactVersion/ s/.*exactVersion: *([0-9.]+).*/\1/p' project.yml)
+          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" -o "$RUNNER_TEMP/sparkle.tar.xz"
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xJf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          DMG="SkillsManager-$VERSION.dmg"
+          SIGN_OUT=$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$RUNNER_TEMP/sparkle/bin/sign_update" --ed-key-file - "$DMG")
+          scripts/make-appcast.sh --version "$VERSION" --build "$GITHUB_RUN_NUMBER" \
+            --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/$DMG" \
+            --sign-output "$SIGN_OUT" --notes "release-notes/$VERSION.md" --out appcast.xml
+          xmllint --noout appcast.xml
+          PUB=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "build/Build/Products/Release/Skills Manager.app/Contents/Info.plist")
+          SIG=$(sed -nE 's/.*sparkle:edSignature="([^"]+)".*/\1/p' <<< "$SIGN_OUT")
+          swift scripts/verify-update-signature.swift "$DMG" "$SIG" "$PUB"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           shasum -a 256 "SkillsManager-$VERSION.dmg" > "SkillsManager-$VERSION.dmg.sha256"
-          gh release create "$GITHUB_REF_NAME" "SkillsManager-$VERSION.dmg" "SkillsManager-$VERSION.dmg.sha256" \
+          gh release create "$GITHUB_REF_NAME" "SkillsManager-$VERSION.dmg" "SkillsManager-$VERSION.dmg.sha256" appcast.xml \
             --title "Skills Manager $VERSION" --generate-notes
