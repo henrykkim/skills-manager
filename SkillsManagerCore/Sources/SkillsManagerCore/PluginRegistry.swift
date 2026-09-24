@@ -53,26 +53,42 @@ public enum PluginRegistry {
     }
 
     public static func loadPlugins(paths: ClaudePaths, enabledPlugins: [String: Bool]) -> PluginLoadResult {
+        loadPlugins(store: paths.userPluginStore, enabledPlugins: enabledPlugins, scope: .user, only: nil)
+    }
+
+    /// `only`: when set, load just these plugin IDs (project scope) and report
+    /// any that aren't installed.
+    public static func loadPlugins(store: PluginStore, enabledPlugins: [String: Bool],
+                                   scope: PluginScope, only: Set<String>?) -> PluginLoadResult {
         let fm = FileManager.default
         var result = PluginLoadResult()
-        let records: [InstalledPluginRecord]
+        var records: [InstalledPluginRecord]
         do {
-            records = try loadRecords(installedPluginsFile: paths.installedPluginsFile)
+            records = try loadRecords(installedPluginsFile: store.installedPluginsFile)
         } catch {
-            if fm.fileExists(atPath: paths.installedPluginsFile.path) {
+            if fm.fileExists(atPath: store.installedPluginsFile.path) {
                 result.issues.append(ParseIssue(
-                    location: paths.installedPluginsFile,
+                    location: store.installedPluginsFile,
                     detail: "Plugin registry can't be read: \(error.localizedDescription)"))
             }
-            return result // no file at all is normal — Claude Code without plugins
+            records = []
+        }
+        if let only {
+            records = records.filter { only.contains($0.pluginID) }
+            let found = Set(records.map(\.pluginID))
+            for missing in only.subtracting(found).sorted() {
+                result.issues.append(ParseIssue(
+                    location: store.installedPluginsFile,
+                    detail: "\(missing) is turned on for a project but isn't installed"))
+            }
         }
 
-        let marketplaces = marketplaceInfo(knownMarketplacesFile: paths.knownMarketplacesFile)
+        let marketplaces = marketplaceInfo(knownMarketplacesFile: store.knownMarketplacesFile)
 
         for record in records.sorted(by: { $0.pluginID < $1.pluginID }) {
-            guard let contentDir = contentDirectory(for: record, paths: paths) else {
+            guard let contentDir = contentDirectory(for: record, store: store) else {
                 result.issues.append(ParseIssue(
-                    location: paths.pluginsCacheDir,
+                    location: store.cacheDir,
                     detail: "\(record.pluginID) is registered but its files are missing"))
                 continue
             }
@@ -100,7 +116,8 @@ public enum PluginRegistry {
                 authorURL: manifest.authorURL,
                 homepageURL: manifest.homepageURL,
                 marketplaceURL: market?.url,
-                installedAt: record.installedAt))
+                installedAt: record.installedAt,
+                scope: scope))
         }
         return result
     }
@@ -166,10 +183,10 @@ public enum PluginRegistry {
 
     /// Prefer the cache layout (relocatable, verified format); fall back to the
     /// registry's absolute installPath only if the cache copy is absent.
-    private static func contentDirectory(for record: InstalledPluginRecord, paths: ClaudePaths) -> URL? {
+    private static func contentDirectory(for record: InstalledPluginRecord, store: PluginStore) -> URL? {
         let fm = FileManager.default
         if let version = record.version {
-            let cacheDir = paths.pluginsCacheDir
+            let cacheDir = store.cacheDir
                 .appending(path: record.marketplace, directoryHint: .isDirectory)
                 .appending(path: record.name, directoryHint: .isDirectory)
                 .appending(path: version, directoryHint: .isDirectory)

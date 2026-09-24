@@ -26,4 +26,18 @@ public struct ClaudePaths: Sendable {
     public var sharedSkillsDir: URL { agentsDir.appending(path: "skills", directoryHint: .isDirectory) }
     /// Written by the `npx skills` installer; records where each shared skill came from.
     public var agentsLockFile: URL { agentsDir.appending(path: ".skill-lock.json") }
+
+    /// Terminal Claude Code's settings, including the `projects` map of every
+    /// folder it has been opened in.
+    public var claudeJSON: URL { home.appending(path: ".claude.json") }
+    public var desktopSupportDir: URL {
+        home.appending(path: "Library/Application Support/Claude", directoryHint: .isDirectory)
+    }
+    /// Claude desktop app, Code tab: one JSON file per session (`cwd`, `originCwd`).
+    public var codeSessionsDir: URL { desktopSupportDir.appending(path: "claude-code-sessions", directoryHint: .isDirectory) }
+    /// Claude desktop app, Cowork: session files (`userSelectedFolders`) and Cowork's own plugins.
+    public var coworkSessionsDir: URL { desktopSupportDir.appending(path: "local-agent-mode-sessions", directoryHint: .isDirectory) }
+    /// Local copy of the skills in the user's Claude account.
+    public var accountSkillsDir: URL { coworkSessionsDir.appending(path: "skills-plugin", directoryHint: .isDirectory) }
+    public var userPluginStore: PluginStore { PluginStore(root: pluginsDir) }
 }

@@ -8,15 +8,22 @@ public enum Invocation {
     /// (Exception not relevant here: a plugin-root SKILL.md; plan 2 note.)
     public static func string(for skill: Skill) -> String {
         switch skill.source {
-        case .personal, .shared:
+        case .personal, .shared, .project:
             return "/\(skill.folderName)"
         case .plugin(let pluginID):
             let pluginName = pluginID.split(separator: "@", maxSplits: 1).first.map(String.init) ?? pluginID
             return "/\(pluginName):\(skill.folderName)"
+        case .account:
+            // Claude-account skills load in Claude Code (desktop) as the
+            // built-in anthropic-skills plugin.
+            return "/anthropic-skills:\(skill.folderName)"
         }
     }
 
     public static func availabilityLabel(for skill: Skill) -> String {
+        if case .account = skill.source, !skill.isEnabled {
+            return "Turned off in your Claude account. Turn it back on in Claude → Settings → Skills."
+        }
         // A skill that still shows as .shared is NOT connected to Claude Code
         // (connected ones are deduped into the personal list by Inventory.load).
         // Never claim Claude Code can use it.
