@@ -160,7 +160,7 @@ still bumped by hand each release.
 
 ## 7. Testing
 
-- **Unit tests (app target or a small test on the built Info.plist):**
+- **Settings check (`scripts/check-update-settings.sh`, run on a built app; the app target has no unit tests):**
   - `SUFeedURL` equals the latest-release appcast URL.
   - `SUPublicEDKey` is present.
   - `SUAutomaticallyUpdate` is `NO`.
