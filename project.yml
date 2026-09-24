@@ -20,7 +20,7 @@ settings:
     # Automatic updates (Sparkle). The release workflow sets
     # SU_AUTOMATIC_CHECKS=YES; local builds never check on their own.
     SU_FEED_URL: "https://github.com/henrykkim/skills-manager/releases/latest/download/appcast.xml"
-    SPARKLE_PUBLIC_KEY: ""
+    SPARKLE_PUBLIC_KEY: "dDn9CLtc9gJa3L08mncDLwNzmgXliWJKzo5Ev1p6Hx4="
     SU_AUTOMATIC_CHECKS: "NO"
   configs:
     Debug:
