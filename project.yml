@@ -14,7 +14,7 @@ settings:
     SWIFT_VERSION: "6.0"
     PRODUCT_NAME: "Skills Manager"
     CODE_SIGN_STYLE: Manual
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
     # Hardened runtime is for Developer ID builds only (the release workflow
     # turns it on; notarization requires it). Ad-hoc local builds have no
