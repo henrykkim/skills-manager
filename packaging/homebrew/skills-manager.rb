@@ -9,6 +9,8 @@ cask "skills-manager" do
   desc "Inventory of Claude Code skills and plugins with per-skill cheat sheets"
   homepage "https://github.com/henrykkim/skills-manager"
 
+  # Sparkle updates the app in place; brew shouldn't fight it.
+  auto_updates true
   depends_on macos: ">= :sonoma"
 
   app "Skills Manager.app"

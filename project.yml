@@ -6,14 +6,26 @@ options:
 packages:
   SkillsManagerCore:
     path: SkillsManagerCore
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 settings:
   base:
     SWIFT_VERSION: "6.0"
     PRODUCT_NAME: "Skills Manager"
     CODE_SIGN_STYLE: Manual
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
-    ENABLE_HARDENED_RUNTIME: YES
+    # Hardened runtime is for Developer ID builds only (the release workflow
+    # turns it on; notarization requires it). Ad-hoc local builds have no
+    # Team ID, so with it on, library validation refuses to load
+    # Sparkle.framework and the app dies at launch.
+    ENABLE_HARDENED_RUNTIME: NO
+    # Automatic updates (Sparkle). The release workflow sets
+    # SU_AUTOMATIC_CHECKS=YES; local builds never check on their own.
+    SU_FEED_URL: "https://github.com/henrykkim/skills-manager/releases/latest/download/appcast.xml"
+    SPARKLE_PUBLIC_KEY: "dDn9CLtc9gJa3L08mncDLwNzmgXliWJKzo5Ev1p6Hx4="
+    SU_AUTOMATIC_CHECKS: "NO"
   configs:
     Debug:
       CODE_SIGN_IDENTITY: "-"
@@ -31,6 +43,7 @@ targets:
     sources: [App]
     dependencies:
       - package: SkillsManagerCore
+      - package: Sparkle
       - sdk: FoundationModels.framework
         weak: true
     info:
@@ -42,6 +55,11 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: ""
+        SUFeedURL: "$(SU_FEED_URL)"
+        SUPublicEDKey: "$(SPARKLE_PUBLIC_KEY)"
+        SUEnableAutomaticChecks: "$(SU_AUTOMATIC_CHECKS)"
+        SUAutomaticallyUpdate: false
+        SUAllowsAutomaticUpdates: false
 schemes:
   SkillsManager:
     build:
