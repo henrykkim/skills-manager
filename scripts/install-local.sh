@@ -44,3 +44,8 @@ rm -rf "$REPO/build" "$REPO"/.claude/worktrees/*/build 2>/dev/null || true
 
 echo "▸ Installed $(defaults read "$DEST/Contents/Info.plist" CFBundleShortVersionString) — launching"
 open "$DEST"
+# A build that dies at launch (e.g. a framework refused by library
+# validation) must not pass silently.
+sleep 4
+pgrep -x "$APP_NAME" >/dev/null || { echo "✗ $APP_NAME quit right after launch — check Console / DiagnosticReports"; exit 1; }
+echo "▸ Running"

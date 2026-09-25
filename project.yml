@@ -16,7 +16,11 @@ settings:
     CODE_SIGN_STYLE: Manual
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    ENABLE_HARDENED_RUNTIME: YES
+    # Hardened runtime is for Developer ID builds only (the release workflow
+    # turns it on; notarization requires it). Ad-hoc local builds have no
+    # Team ID, so with it on, library validation refuses to load
+    # Sparkle.framework and the app dies at launch.
+    ENABLE_HARDENED_RUNTIME: NO
     # Automatic updates (Sparkle). The release workflow sets
     # SU_AUTOMATIC_CHECKS=YES; local builds never check on their own.
     SU_FEED_URL: "https://github.com/henrykkim/skills-manager/releases/latest/download/appcast.xml"

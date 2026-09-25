@@ -52,7 +52,7 @@ jobs:
           # counter and would stop updates reaching existing installs.
           xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
             -configuration Release -derivedDataPath build \
-            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" ENABLE_HARDENED_RUNTIME=YES \
             SU_AUTOMATIC_CHECKS=YES \
             CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="$TEAM_ID" \
             OTHER_CODE_SIGN_FLAGS="--timestamp" build
@@ -73,6 +73,8 @@ jobs:
           "${SIGN[@]}" "$FW"
           "${SIGN[@]}" --preserve-metadata=entitlements "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
+          # Notarization requires the hardened runtime on the app itself.
+          codesign -dv "$APP" 2>&1 | grep -q "flags=.*runtime" || { echo "::error::app is missing the hardened runtime"; exit 1; }
 
       - name: Package DMG
         run: scripts/make-dmg.sh "build/Build/Products/Release/Skills Manager.app" "SkillsManager-$VERSION.dmg"
