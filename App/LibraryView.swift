@@ -13,6 +13,7 @@ enum LibrarySelection: Hashable {
 
 struct LibraryView: View {
     @Environment(InventoryStore.self) private var store
+    @Environment(UsageStore.self) private var usage
     @State private var selection: LibrarySelection?
     @State private var searchText = ""
     @State private var expandedPlugins: Set<String> = []
@@ -92,12 +93,19 @@ struct LibraryView: View {
     }
 
     private var sidebar: some View {
-        List(selection: $selection) {
-            if !filteredPlugins.isEmpty {
+        let skillList = skillListModel
+        let pluginList = pluginListModel
+        return List(selection: $selection) {
+            if !pluginList.entries.isEmpty {
                 Section("Plugins") {
                     // Expandable (spec §5.1): bundled skills are selectable rows
                     // so each gets its full cheat sheet, not just a chip.
-                    ForEach(filteredPlugins) { entry in
+                    ForEach(pluginList.entries) { entry in
+                        if pluginList.dividerID == entry.id {
+                            Divider()
+                                .listRowSeparator(.hidden)
+                                .selectionDisabled()
+                        }
                         // While searching: always expanded so the matching bundled
                         // skill/command is visible; manual toggling is suspended.
                         // When search clears: manual expansion state is restored.
@@ -112,16 +120,25 @@ struct LibraryView: View {
                                 SkillRow(skill: skill).tag(LibrarySelection.skill(skill.id))
                             }
                         } label: {
-                            PluginRow(entry: entry).tag(LibrarySelection.plugin(entry.id))
+                            PluginRow(entry: entry, showsUsageHint: usage.isEnabled,
+                                     usage: pluginList.summaries[entry.id])
+                                .tag(LibrarySelection.plugin(entry.id))
                                 .contextMenu { removeAddedProjectItems(roots: projectRoots(of: entry)) }
                         }
                     }
                 }
             }
-            if !filteredSkills.isEmpty {
+            if !skillList.entries.isEmpty {
                 Section("Skills") {
-                    ForEach(filteredSkills) { entry in
-                        SkillEntryRow(entry: entry).tag(LibrarySelection.entry(entry.id))
+                    ForEach(skillList.entries) { entry in
+                        if skillList.dividerID == entry.id {
+                            Divider()
+                                .listRowSeparator(.hidden)
+                                .selectionDisabled()
+                        }
+                        SkillEntryRow(entry: entry, showsUsageHint: usage.isEnabled,
+                                     usage: skillList.summaries[entry.id])
+                            .tag(LibrarySelection.entry(entry.id))
                             .contextMenu { removeAddedProjectItems(roots: projectRoots(of: entry)) }
                     }
                 }
@@ -219,6 +236,40 @@ struct LibraryView: View {
             Text(addFolderMessage ?? "")
         }
         .onReceive(NotificationCenter.default.publisher(for: .showAddFolder)) { _ in pickFolder() }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if usage.isEnabled {
+                VStack(spacing: 0) {
+                    HStack(spacing: Spacing.sm) {
+                        Text("Sorted by").font(.caption).foregroundStyle(.secondary)
+                        Menu {
+                            Picker("Sort order", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
+                                ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
+                            }
+                            .pickerStyle(.inline)
+                        } label: {
+                            Text(usage.sort.label)
+                        }
+                        .accessibilityLabel("Sort order")
+                        Menu {
+                            Picker("Count period", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
+                                ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
+                            }
+                            .pickerStyle(.inline)
+                        } label: {
+                            Text(usage.window.label)
+                        }
+                        .accessibilityLabel("Count period")
+                        Spacer()
+                    }
+                    .menuStyle(.button)
+                    .controlSize(.small)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.bottom, Spacing.sm)  // the search field already carries its own inset above
+                    Divider()
+                }
+                .background(.bar)
+            }
+        }
     }
 
     private func pickFolder() {
@@ -234,6 +285,10 @@ struct LibraryView: View {
         }
     }
 
+    private var projectNames: [String: String] {
+        Dictionary(store.inventory.projects.map { ($0.root.path, $0.displayName) }, uniquingKeysWith: { a, _ in a })
+    }
+
     private var isEmptyLibrary: Bool {
         filteredPlugins.isEmpty && filteredSkills.isEmpty && filteredShared.isEmpty
             && filteredNotes.isEmpty && filteredBuiltIn.isEmpty && store.inventory.issues.isEmpty
@@ -245,14 +300,14 @@ struct LibraryView: View {
         case .entry(let id):
             if let entry = (library.skills + library.builtIn).first(where: { $0.id == id }) {
                 SkillDetailView(skill: entry.skill, parentPlugin: nil, entry: entry,
-                                accountLastSynced: store.inventory.accountLastSynced)
+                                accountLastSynced: store.inventory.accountLastSynced, projectNames: projectNames)
             } else {
                 missingSelection
             }
         case .skill(let id):
             if let skill = allSkills.first(where: { $0.id == id }) {
                 SkillDetailView(skill: skill, parentPlugin: parentPlugin(of: skill), entry: nil,
-                                accountLastSynced: nil)
+                                accountLastSynced: nil, projectNames: projectNames)
             } else {
                 missingSelection
             }
@@ -329,8 +384,56 @@ struct LibraryView: View {
 
     // MARK: Filtering
 
-    private var filteredPlugins: [PluginEntry] { library.plugins.filter { matches($0) } }
-    private var filteredSkills: [SkillEntry] { library.skills.filter { matches($0) } }
+    private var filteredPlugins: [PluginEntry] {
+        let matching = library.plugins.filter { matches($0) }
+        guard usage.isEnabled else { return matching }
+        return UsageSort.sortedPlugins(matching, by: usage.sort, stats: usage.stats)
+    }
+
+    private var filteredSkills: [SkillEntry] {
+        let matching = library.skills.filter { matches($0) }
+        guard usage.isEnabled else { return matching }
+        return UsageSort.sorted(matching, by: usage.sort, stats: usage.stats)
+    }
+
+    /// Precomputed once per body evaluation: the sorted entries (skills or
+    /// plugins), each entry's usage summary (looked up once, not recomputed
+    /// per row), and the id of the first never-used entry when both a used
+    /// and a never-used group exist under one of the usage sorts — the
+    /// divider renders just above it. Shared by the Skills and Plugins
+    /// sections.
+    private struct UsageListModel<Entry: Identifiable> where Entry.ID == String {
+        let entries: [Entry]
+        let summaries: [String: UsageSummary]
+        let dividerID: String?
+    }
+
+    private func usageListModel<Entry: Identifiable>(
+        entries: [Entry], summary: (Entry) -> UsageSummary?
+    ) -> UsageListModel<Entry> where Entry.ID == String {
+        guard usage.isEnabled else { return UsageListModel(entries: entries, summaries: [:], dividerID: nil) }
+        var summaries: [String: UsageSummary] = [:]
+        summaries.reserveCapacity(entries.count)
+        for entry in entries {
+            if let s = summary(entry) { summaries[entry.id] = s }
+        }
+        var dividerID: String?
+        if usage.sort == .lastUsed || usage.sort == .mostUsed,
+           let firstNeverUsedIndex = entries.firstIndex(where: { summaries[$0.id] == nil }),
+           firstNeverUsedIndex > 0 {
+            dividerID = entries[firstNeverUsedIndex].id
+        }
+        return UsageListModel(entries: entries, summaries: summaries, dividerID: dividerID)
+    }
+
+    private var skillListModel: UsageListModel<SkillEntry> {
+        usageListModel(entries: filteredSkills) { usage.stats.summary(for: $0.skill) }
+    }
+
+    private var pluginListModel: UsageListModel<PluginEntry> {
+        usageListModel(entries: filteredPlugins) { usage.stats.summary(forPlugin: $0.plugin) }
+    }
+
     private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { matches($0) } }
     private var filteredShared: [Skill] { store.inventory.sharedSkills.filter { matches($0) } }
     private var filteredNotes: [NoteFolder] {

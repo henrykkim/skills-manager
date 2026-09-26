@@ -15,6 +15,9 @@ final class InventoryStore {
     private var sourcesWatcher: FileWatcher?
     private var loadGeneration = 0
 
+    /// Set by the app so usage rescans ride along with every inventory reload.
+    var onReload: (@MainActor () -> Void)?
+
     private static let addedFoldersKey = "addedFolders"
     private static let projectAccessKey = "projectAccessAcknowledged"
 
@@ -36,7 +39,7 @@ final class InventoryStore {
         // Claude is in use — a long debounce keeps rescans rare (spec §6.1).
         sourcesWatcher = FileWatcher(
             root: paths.home,
-            targets: [paths.claudeJSON, paths.codeSessionsDir, paths.coworkSessionsDir],
+            targets: [paths.claudeJSON, paths.codeSessionsDir, paths.coworkSessionsDir, paths.claudeCodeLogsDir],
             delay: 10
         ) { [weak self] in
             Task { @MainActor in self?.reload() }
@@ -67,6 +70,7 @@ final class InventoryStore {
                 self.inventory = loaded
                 self.isLoading = false
                 self.watcher?.setTargets(self.baseTargets + loaded.projectWatchTargets)
+                self.onReload?()
             }
         }
     }

@@ -17,6 +17,9 @@ public struct ClaudePaths: Sendable {
 
     public var claudeDir: URL { home.appending(path: ".claude", directoryHint: .isDirectory) }
     public var personalSkillsDir: URL { claudeDir.appending(path: "skills", directoryHint: .isDirectory) }
+    /// Claude Code session transcripts (terminal and desktop Code tab), one
+    /// JSONL per session under an escaped-cwd folder.
+    public var claudeCodeLogsDir: URL { claudeDir.appending(path: "projects", directoryHint: .isDirectory) }
     public var settingsFile: URL { claudeDir.appending(path: "settings.json") }
     public var pluginsDir: URL { claudeDir.appending(path: "plugins", directoryHint: .isDirectory) }
     public var installedPluginsFile: URL { pluginsDir.appending(path: "installed_plugins.json") }

@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct SkillsManagerApp: App {
     @State private var store = InventoryStore()
+    @State private var usage = UsageStore()
     /// Sparkle's standard updater: checks on its own schedule (release builds
     /// only — see SU_AUTOMATIC_CHECKS) and always asks before installing.
     private let updaterController = SPUStandardUpdaterController(
@@ -13,7 +14,11 @@ struct SkillsManagerApp: App {
         WindowGroup {
             LibraryView()
                 .environment(store)
-                .task { store.start() }
+                .environment(usage)
+                .task {
+                    store.onReload = { usage.refresh() }
+                    store.start()
+                }
                 .frame(minWidth: 760, minHeight: 480)
         }
         // Reload is automatic (FSEvents); ⌘R is a manual fallback.
@@ -32,6 +37,10 @@ struct SkillsManagerApp: App {
                     .keyboardShortcut("r")
                     .disabled(store.isLoading)
             }
+        }
+
+        Settings {
+            SettingsView().environment(usage)
         }
     }
 }

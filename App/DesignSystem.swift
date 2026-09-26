@@ -113,22 +113,39 @@ struct InvocationChip: View {
 
 /// Titled card for the detail views. Sits on the secondary background —
 /// a single level of elevation, never stacked on another card.
-struct SectionCard<Content: View>: View {
+struct SectionCard<Content: View, Trailing: View>: View {
     let title: String
     @ViewBuilder var content: Content
+    @ViewBuilder var trailing: Trailing
+
+    init(title: String, @ViewBuilder content: () -> Content, @ViewBuilder trailing: () -> Trailing) {
+        self.title = title
+        self.content = content()
+        self.trailing = trailing()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text(title)
-                .textCase(.uppercase)
-                .tracking(0.4)
-                .font(.cardLabel)
-                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .textCase(.uppercase)
+                    .tracking(0.4)
+                    .font(.cardLabel)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: Spacing.sm)
+                trailing
+            }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.lg)
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+extension SectionCard where Trailing == EmptyView {
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.init(title: title, content: content, trailing: { EmptyView() })
     }
 }
 
