@@ -272,12 +272,24 @@ struct LibraryView: View {
             Text(addFolderMessage ?? "")
         }
         .onReceive(NotificationCenter.default.publisher(for: .showAddFolder)) { _ in pickFolder() }
-        .toolbar {
-            ToolbarItem(placement: .navigation) { Spacer() }
+        .toolbar { sidebarToolbarContent }
+    }
+
+    /// The Mail-style sidebar toolbar's content. `titleMenu` opts out of the
+    /// system's per-item capsule background on macOS 26+ so it reads as a
+    /// flat title, matching the owner-approved design; `sortMenu` keeps its
+    /// capsule, matching Mail's own utility buttons.
+    @ToolbarContentBuilder
+    private var sidebarToolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigation) { Spacer() }
+        if #available(macOS 26, *) {
             ToolbarItem(placement: .principal) { titleMenu }
-            ToolbarItem { Spacer() }
-            ToolbarItem { sortMenu }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .principal) { titleMenu }
         }
+        ToolbarItem { Spacer() }
+        ToolbarItem { sortMenu }
     }
 
     /// The Mail-style title control: a two-line menu label (scope name +
