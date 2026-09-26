@@ -377,53 +377,32 @@ struct LibraryView: View {
         return UsageSort.sortedPlugins(matching, by: usage.sort, stats: usage.stats)
     }
 
-    /// Same precomputed-model approach as `skillListModel`, for plugins.
-    private struct PluginListModel {
-        let entries: [PluginEntry]
-        let summaries: [String: UsageSummary]
-        let dividerID: String?
-    }
-
-    private var pluginListModel: PluginListModel {
-        let entries = filteredPlugins
-        guard usage.isEnabled else { return PluginListModel(entries: entries, summaries: [:], dividerID: nil) }
-        var summaries: [String: UsageSummary] = [:]
-        summaries.reserveCapacity(entries.count)
-        for entry in entries {
-            if let summary = usage.stats.summary(forPlugin: entry.plugin) { summaries[entry.id] = summary }
-        }
-        var dividerID: String?
-        if usage.sort == .lastUsed || usage.sort == .mostUsed,
-           let firstNeverUsedIndex = entries.firstIndex(where: { summaries[$0.id] == nil }),
-           firstNeverUsedIndex > 0 {
-            dividerID = entries[firstNeverUsedIndex].id
-        }
-        return PluginListModel(entries: entries, summaries: summaries, dividerID: dividerID)
-    }
-
     private var filteredSkills: [SkillEntry] {
         let matching = library.skills.filter { matches($0) }
         guard usage.isEnabled else { return matching }
         return UsageSort.sorted(matching, by: usage.sort, stats: usage.stats)
     }
 
-    /// Precomputed once per body evaluation: the sorted skills, each entry's
-    /// usage summary (looked up once, not recomputed per row), and the id of
-    /// the first never-used entry when both a used and a never-used group
-    /// exist under one of the usage sorts — the divider renders just above it.
-    private struct SkillListModel {
-        let entries: [SkillEntry]
+    /// Precomputed once per body evaluation: the sorted entries (skills or
+    /// plugins), each entry's usage summary (looked up once, not recomputed
+    /// per row), and the id of the first never-used entry when both a used
+    /// and a never-used group exist under one of the usage sorts — the
+    /// divider renders just above it. Shared by the Skills and Plugins
+    /// sections.
+    private struct UsageListModel<Entry: Identifiable> where Entry.ID == String {
+        let entries: [Entry]
         let summaries: [String: UsageSummary]
         let dividerID: String?
     }
 
-    private var skillListModel: SkillListModel {
-        let entries = filteredSkills
-        guard usage.isEnabled else { return SkillListModel(entries: entries, summaries: [:], dividerID: nil) }
+    private func usageListModel<Entry: Identifiable>(
+        entries: [Entry], summary: (Entry) -> UsageSummary?
+    ) -> UsageListModel<Entry> where Entry.ID == String {
+        guard usage.isEnabled else { return UsageListModel(entries: entries, summaries: [:], dividerID: nil) }
         var summaries: [String: UsageSummary] = [:]
         summaries.reserveCapacity(entries.count)
         for entry in entries {
-            if let summary = usage.stats.summary(for: entry.skill) { summaries[entry.id] = summary }
+            if let s = summary(entry) { summaries[entry.id] = s }
         }
         var dividerID: String?
         if usage.sort == .lastUsed || usage.sort == .mostUsed,
@@ -431,8 +410,17 @@ struct LibraryView: View {
            firstNeverUsedIndex > 0 {
             dividerID = entries[firstNeverUsedIndex].id
         }
-        return SkillListModel(entries: entries, summaries: summaries, dividerID: dividerID)
+        return UsageListModel(entries: entries, summaries: summaries, dividerID: dividerID)
     }
+
+    private var skillListModel: UsageListModel<SkillEntry> {
+        usageListModel(entries: filteredSkills) { usage.stats.summary(for: $0.skill) }
+    }
+
+    private var pluginListModel: UsageListModel<PluginEntry> {
+        usageListModel(entries: filteredPlugins) { usage.stats.summary(forPlugin: $0.plugin) }
+    }
+
     private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { matches($0) } }
     private var filteredShared: [Skill] { store.inventory.sharedSkills.filter { matches($0) } }
     private var filteredNotes: [NoteFolder] {

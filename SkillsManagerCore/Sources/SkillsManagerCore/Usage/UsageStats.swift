@@ -120,17 +120,20 @@ public enum UsageSort: String, CaseIterable, Sendable, Hashable {
         }
     }
 
-    /// `.name` keeps the library's own order. Otherwise used skills come first
-    /// by the chosen measure; never-used skills keep name order after them (spec §7).
-    public static func sorted(_ entries: [SkillEntry], by sort: UsageSort, stats: UsageStats) -> [SkillEntry] {
-        let byName: (SkillEntry, SkillEntry) -> Bool = {
-            let c = $0.skill.displayName.localizedStandardCompare($1.skill.displayName)
-            return c != .orderedSame ? c == .orderedAscending : $0.id < $1.id
+    /// `.name` keeps the library's own order. Otherwise used entries come first
+    /// by the chosen measure; never-used entries keep name order after them (spec §7).
+    /// Shared by `sorted(_:by:stats:)` and `sortedPlugins(_:by:stats:)`.
+    private static func order<T>(_ entries: [T], by sort: UsageSort,
+                                  name: @escaping (T) -> String, id: @escaping (T) -> String,
+                                  summary: (T) -> UsageSummary?) -> [T] {
+        let byName: (T, T) -> Bool = {
+            let c = name($0).localizedStandardCompare(name($1))
+            return c != .orderedSame ? c == .orderedAscending : id($0) < id($1)
         }
         if sort == .name { return entries.sorted(by: byName) }
-        let summaries = Dictionary(entries.map { ($0.id, stats.summary(for: $0.skill)) }, uniquingKeysWith: { first, _ in first })
+        let summaries = Dictionary(entries.map { (id($0), summary($0)) }, uniquingKeysWith: { first, _ in first })
         return entries.sorted { a, b in
-            switch (summaries[a.id]!, summaries[b.id]!) {
+            switch (summaries[id(a)]!, summaries[id(b)]!) {
             case (nil, nil): return byName(a, b)
             case (nil, _): return false
             case (_, nil): return true
@@ -142,24 +145,12 @@ public enum UsageSort: String, CaseIterable, Sendable, Hashable {
         }
     }
 
+    public static func sorted(_ entries: [SkillEntry], by sort: UsageSort, stats: UsageStats) -> [SkillEntry] {
+        order(entries, by: sort, name: { $0.skill.displayName }, id: \.id, summary: { stats.summary(for: $0.skill) })
+    }
+
     /// Same semantics as `sorted(_:by:stats:)`, for plugins.
     public static func sortedPlugins(_ entries: [PluginEntry], by sort: UsageSort, stats: UsageStats) -> [PluginEntry] {
-        let byName: (PluginEntry, PluginEntry) -> Bool = {
-            let c = $0.plugin.name.localizedStandardCompare($1.plugin.name)
-            return c != .orderedSame ? c == .orderedAscending : $0.id < $1.id
-        }
-        if sort == .name { return entries.sorted(by: byName) }
-        let summaries = Dictionary(entries.map { ($0.id, stats.summary(forPlugin: $0.plugin)) }, uniquingKeysWith: { first, _ in first })
-        return entries.sorted { a, b in
-            switch (summaries[a.id]!, summaries[b.id]!) {
-            case (nil, nil): return byName(a, b)
-            case (nil, _): return false
-            case (_, nil): return true
-            case (let sa?, let sb?):
-                if sort == .mostUsed, sa.countInWindow != sb.countInWindow { return sa.countInWindow > sb.countInWindow }
-                if sa.lastUsed != sb.lastUsed { return sa.lastUsed > sb.lastUsed }
-                return byName(a, b)
-            }
-        }
+        order(entries, by: sort, name: { $0.plugin.name }, id: \.id, summary: { stats.summary(forPlugin: $0.plugin) })
     }
 }
