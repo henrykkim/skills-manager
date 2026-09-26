@@ -17,6 +17,7 @@ struct SkillsManagerApp: App {
                 .environment(usage)
                 .task {
                     store.onReload = { usage.refresh() }
+                    store.onScopeChange = { usage.setScope($0) }
                     store.start()
                 }
                 .frame(minWidth: 760, minHeight: 480)

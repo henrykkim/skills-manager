@@ -10,6 +10,7 @@ struct SkillDetailView: View {
     var projectNames: [String: String] = [:]
 
     @Environment(UsageStore.self) private var usage
+    @Environment(InventoryStore.self) private var store
 
     var body: some View {
         ScrollView {
@@ -35,7 +36,9 @@ struct SkillDetailView: View {
                 if usage.isEnabled {
                     UsageSection(skill: skill, summary: usage.stats.summary(for: skill), window: usage.window,
                                  isAccountSkill: { if case .account = skill.source { return true }; return false }(),
-                                 projectNames: projectNames)
+                                 projectNames: projectNames,
+                                 byProject: usage.allStats.summary(for: skill)?.byProject ?? [],
+                                 scopeName: store.scope == .everywhere ? nil : store.scope.label(projects: store.inventory.projects))
                 }
 
                 if let whenToUse = skill.whenToUse {

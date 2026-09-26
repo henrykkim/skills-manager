@@ -30,9 +30,32 @@ struct LibraryView: View {
     var body: some View {
         NavigationSplitView {
             sidebar
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300)
+                .navigationSplitViewColumnWidth(min: 340, ideal: 360)
+                .toolbar(removing: .sidebarToggle)
         } detail: {
             detailView
+        }
+        .onChange(of: store.scope) { _, _ in
+            guard let selection else { return }
+            switch selection {
+            case .entry(let id):
+                if let entry = (library.skills + library.builtIn).first(where: { $0.id == id }),
+                   !store.scope.contains(entry) {
+                    self.selection = nil
+                }
+            case .plugin(let id):
+                if let entry = library.plugins.first(where: { $0.id == id }),
+                   !store.scope.contains(entry) {
+                    self.selection = nil
+                }
+            case .skill(let id):
+                if let parent = library.plugins.first(where: { $0.plugin.skills.contains { $0.id == id } }),
+                   !store.scope.contains(parent) {
+                    self.selection = nil
+                }
+            case .note, .needsAttention:
+                break
+            }
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills, commands, and projects")
         .navigationTitle("Skills Manager")
@@ -190,6 +213,19 @@ struct LibraryView: View {
                         .tag(LibrarySelection.needsAttention)
                 }
             }
+            if store.scope != .everywhere, hiddenCount > 0 {
+                Section {
+                    HStack(spacing: Spacing.xs) {
+                        Text(hiddenCount == 1 ? "1 item not available in \(scopeName)"
+                                              : "\(hiddenCount) items not available in \(scopeName)")
+                        Button("Show Everywhere") { store.setScope(.everywhere) }
+                            .buttonStyle(.link)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .selectionDisabled()
+                }
+            }
         }
         .overlay {
             if isEmptyLibrary {
@@ -236,39 +272,101 @@ struct LibraryView: View {
             Text(addFolderMessage ?? "")
         }
         .onReceive(NotificationCenter.default.publisher(for: .showAddFolder)) { _ in pickFolder() }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if usage.isEnabled {
-                VStack(spacing: 0) {
-                    HStack(spacing: Spacing.sm) {
-                        Text("Sorted by").font(.caption).foregroundStyle(.secondary)
-                        Menu {
-                            Picker("Sort order", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
-                                ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
-                            }
-                            .pickerStyle(.inline)
-                        } label: {
-                            Text(usage.sort.label)
-                        }
-                        .accessibilityLabel("Sort order")
-                        Menu {
-                            Picker("Count period", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
-                                ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
-                            }
-                            .pickerStyle(.inline)
-                        } label: {
-                            Text(usage.window.label)
-                        }
-                        .accessibilityLabel("Count period")
-                        Spacer()
+        .toolbar { sidebarToolbarContent }
+    }
+
+    /// The Mail-style sidebar toolbar's content. `titleMenu` opts out of the
+    /// system's per-item capsule background on macOS 26+ so it reads as a
+    /// flat title, matching the owner-approved design; `sortMenu` keeps its
+    /// capsule, matching Mail's own utility buttons.
+    @ToolbarContentBuilder
+    private var sidebarToolbarContent: some ToolbarContent {
+        if #available(macOS 26, *) {
+            ToolbarSpacer(.flexible, placement: .navigation)
+            ToolbarItem(placement: .principal) { titleMenu }
+                .sharedBackgroundVisibility(.hidden)
+            ToolbarSpacer(.flexible)
+        } else {
+            ToolbarItem(placement: .navigation) { Spacer() }
+            ToolbarItem(placement: .principal) { titleMenu }
+            ToolbarItem { Spacer() }
+        }
+        ToolbarItem { sortMenu }
+    }
+
+    /// The Mail-style title control: a two-line menu label (scope name +
+    /// subtitle) that also picks the scope. Sorted projects each show their
+    /// own available count so switching scope previews what you'll see.
+    private var titleMenu: some View {
+        Menu {
+            Picker("Scope", selection: Binding(get: { store.scope }, set: { store.setScope($0) })) {
+                Text("Everywhere").tag(LibraryScope.everywhere)
+                Divider()
+                Section("Projects") {
+                    ForEach(sortedProjects) { project in
+                        let specific = LibraryScope.specificCount(in: library, scope: .project(root: project.root))
+                        Text(specific > 0 ? "\(project.displayName)  \(specific)" : project.displayName)
+                            .tag(LibraryScope.project(root: project.root))
                     }
-                    .menuStyle(.button)
-                    .controlSize(.small)
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.bottom, Spacing.sm)  // the search field already carries its own inset above
-                    Divider()
                 }
-                .background(.bar)
+                Divider()
+                Text("Cowork  \(LibraryScope.specificCount(in: library, scope: .cowork))").tag(LibraryScope.cowork)
             }
+            .pickerStyle(.inline)
+        } label: {
+            VStack(alignment: .center, spacing: 1) {
+                HStack(spacing: Spacing.xs) {
+                    Text(store.scope.label(projects: store.inventory.projects)).font(.headline)
+                    Image(systemName: "chevron.down").font(.caption2)
+                }
+                Text(titleSubtitle).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .menuIndicator(.hidden)
+        .help("Choose which project's skills to show")
+        .accessibilityLabel("Showing")
+    }
+
+    private var sortedProjects: [Project] {
+        store.inventory.projects.sorted {
+            $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+        }
+    }
+
+    private var titleSubtitle: String {
+        switch store.scope {
+        case .everywhere:
+            let skillCount = library.skills.count + library.builtIn.count
+            let pluginCount = library.plugins.count
+            let projectCount = store.inventory.projects.count
+            return "\(skillCount) skills · \(pluginCount) plugins · \(projectCount) projects"
+        case .project, .cowork:
+            let available = LibraryScope.availableCount(in: library, scope: store.scope)
+            let base = "\(available) available"
+            guard usage.isEnabled else { return base }
+            return "\(base) · sorted by \(usage.sort.label.lowercased())"
+        }
+    }
+
+    /// The sidebar toolbar's trailing sort control, icon-only so it reads as
+    /// chrome rather than competing with the title. Hidden until usage
+    /// tracking has something to sort by.
+    @ViewBuilder
+    private var sortMenu: some View {
+        if usage.isEnabled {
+            Menu {
+                Picker("Sort order", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
+                    ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.inline)
+                Picker("Count period", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
+                    ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Label("Sort", systemImage: "line.3.horizontal.decrease")
+            }
+            .labelStyle(.iconOnly)
         }
     }
 
@@ -292,6 +390,11 @@ struct LibraryView: View {
     private var isEmptyLibrary: Bool {
         filteredPlugins.isEmpty && filteredSkills.isEmpty && filteredShared.isEmpty
             && filteredNotes.isEmpty && filteredBuiltIn.isEmpty && store.inventory.issues.isEmpty
+    }
+
+    private var scopeName: String { store.scope.label(projects: store.inventory.projects) }
+    private var hiddenCount: Int {
+        LibraryScope.hiddenCount(in: library, sharedSkills: store.inventory.sharedSkills, scope: store.scope)
     }
 
     @ViewBuilder
@@ -385,13 +488,13 @@ struct LibraryView: View {
     // MARK: Filtering
 
     private var filteredPlugins: [PluginEntry] {
-        let matching = library.plugins.filter { matches($0) }
+        let matching = library.plugins.filter { store.scope.contains($0) && matches($0) }
         guard usage.isEnabled else { return matching }
         return UsageSort.sortedPlugins(matching, by: usage.sort, stats: usage.stats)
     }
 
     private var filteredSkills: [SkillEntry] {
-        let matching = library.skills.filter { matches($0) }
+        let matching = library.skills.filter { store.scope.contains($0) && matches($0) }
         guard usage.isEnabled else { return matching }
         return UsageSort.sorted(matching, by: usage.sort, stats: usage.stats)
     }
@@ -434,8 +537,11 @@ struct LibraryView: View {
         usageListModel(entries: filteredPlugins) { usage.stats.summary(forPlugin: $0.plugin) }
     }
 
-    private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { matches($0) } }
-    private var filteredShared: [Skill] { store.inventory.sharedSkills.filter { matches($0) } }
+    private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { store.scope.contains($0) && matches($0) } }
+    private var filteredShared: [Skill] {
+        guard store.scope.containsSharedSkill() else { return [] }
+        return store.inventory.sharedSkills.filter { matches($0) }
+    }
     private var filteredNotes: [NoteFolder] {
         guard !searchText.isEmpty else { return store.inventory.notes }
         let q = searchText.localizedLowercase

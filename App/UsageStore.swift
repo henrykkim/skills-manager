@@ -8,6 +8,11 @@ import SkillsManagerCore
 @Observable
 final class UsageStore {
     private(set) var stats = UsageStats(events: [], window: .last30Days)
+    /// Same window as `stats`, but never filtered by scope. The Usage card's
+    /// "By project" list always shows every project (spec §4), even when the
+    /// tiles above it are scoped to the current project.
+    private(set) var allStats = UsageStats(events: [], window: .last30Days)
+    private(set) var scope: LibraryScope = .everywhere
     /// When the most recent scan completed. Nil before the first scan.
     private(set) var lastScanned: Date?
     /// Whether a scan is currently running, off the main thread.
@@ -99,7 +104,14 @@ final class UsageStore {
         rebuildStats()
     }
 
+    func setScope(_ new: LibraryScope) {
+        guard new != scope else { return }
+        scope = new
+        rebuildStats()
+    }
+
     private func rebuildStats() {
-        stats = UsageStats(events: data.events, window: window)
+        stats = UsageStats(events: data.events.filter { scope.includes($0) }, window: window)
+        allStats = UsageStats(events: data.events, window: window)
     }
 }

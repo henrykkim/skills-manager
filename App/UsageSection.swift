@@ -9,17 +9,15 @@ struct UsageSection: View {
     let isAccountSkill: Bool
     /// Canonical project root path → display name, from the inventory.
     let projectNames: [String: String]
+    /// Unscoped by-project breakdown (spec §4: the By project list always
+    /// shows every project, even when `summary` above is scoped).
+    var byProject: [ProjectUsage] = []
+    var scopeName: String? = nil
 
     var body: some View {
         SectionCard(title: "Usage") {
             if let summary {
                 statTiles(for: summary)
-                Divider()
-                Text("By project")
-                    .textCase(.uppercase)
-                    .font(.cardLabel)
-                    .foregroundStyle(.secondary)
-                projectRows(for: summary)
             } else {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Not used yet")
@@ -31,13 +29,22 @@ struct UsageSection: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if !byProject.isEmpty {
+                Divider()
+                Text("By project")
+                    .textCase(.uppercase)
+                    .font(.cardLabel)
+                    .foregroundStyle(.secondary)
+                projectRows(for: byProject)
+            }
             if isAccountSkill {
                 Text("Usage in claude.ai isn’t tracked. These counts cover Claude Code and Cowork only.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
         } trailing: {
-            Text("Counts from Claude Code and Cowork sessions")
+            Text(scopeName.map { "Counts from Claude Code and Cowork sessions in \($0)" }
+                 ?? "Counts from Claude Code and Cowork sessions")
                 .font(.metadata)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
@@ -100,10 +107,10 @@ struct UsageSection: View {
     // MARK: - By project
 
     @ViewBuilder
-    private func projectRows(for summary: UsageSummary) -> some View {
-        let maxCount = summary.byProject.map(\.count).max() ?? 1
+    private func projectRows(for byProject: [ProjectUsage]) -> some View {
+        let maxCount = byProject.map(\.count).max() ?? 1
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            ForEach(summary.byProject, id: \.self) { project in
+            ForEach(byProject, id: \.self) { project in
                 ProjectUsageRow(name: name(for: project), count: project.count, maxCount: maxCount,
                                 lastUsed: project.lastUsed, isCowork: project.projectRoot == nil)
             }
