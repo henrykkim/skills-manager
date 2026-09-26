@@ -18,8 +18,13 @@ final class InventoryStore {
     /// Set by the app so usage rescans ride along with every inventory reload.
     var onReload: (@MainActor () -> Void)?
 
+    private(set) var scope: LibraryScope = .everywhere
+    /// Set by the app so usage stats follow the scope.
+    var onScopeChange: (@MainActor (LibraryScope) -> Void)?
+
     private static let addedFoldersKey = "addedFolders"
     private static let projectAccessKey = "projectAccessAcknowledged"
+    private static let scopeKey = "libraryScope"
 
     init() {
         addedFolders = (UserDefaults.standard.stringArray(forKey: Self.addedFoldersKey) ?? [])
@@ -70,6 +75,7 @@ final class InventoryStore {
                 self.inventory = loaded
                 self.isLoading = false
                 self.watcher?.setTargets(self.baseTargets + loaded.projectWatchTargets)
+                self.validateScope(against: loaded.projects)
                 self.onReload?()
             }
         }
@@ -100,7 +106,26 @@ final class InventoryStore {
         let canonical = Canonical.url(url)
         addedFolders.removeAll { $0.path == canonical.path }
         saveAddedFolders()
+        if case .project(let root) = scope, root.path == canonical.path { setScope(.everywhere) }
         reload()
+    }
+
+    func setScope(_ new: LibraryScope) {
+        guard new != scope else { return }
+        scope = new
+        defaults.set(new.persistenceKey, forKey: Self.scopeKey)
+        onScopeChange?(new)
+    }
+
+    /// After each load: a persisted or current project scope that the inventory
+    /// no longer knows falls back to Everywhere, silently (spec §6).
+    private func validateScope(against projects: [Project]) {
+        let wanted = defaults.string(forKey: Self.scopeKey) ?? scope.persistenceKey
+        let resolved = LibraryScope.from(persistenceKey: wanted, projects: projects)
+        if resolved != scope {
+            scope = resolved
+            onScopeChange?(resolved)
+        }
     }
 
     private func saveAddedFolders() {
