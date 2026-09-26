@@ -264,7 +264,7 @@ struct LibraryView: View {
                     .menuStyle(.button)
                     .controlSize(.small)
                     .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, Spacing.sm)
+                    .padding(.bottom, Spacing.sm)  // the search field already carries its own inset above
                     Divider()
                 }
                 .background(.bar)
