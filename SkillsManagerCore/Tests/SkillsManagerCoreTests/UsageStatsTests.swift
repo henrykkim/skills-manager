@@ -37,6 +37,11 @@ private func entry(_ folder: String, source: SkillSource = .personal) -> SkillEn
     #expect(UsageStats(events: [ev("a", day(31))], window: .allTime, now: now).summary(forKey: "a")?.countInWindow == 1)
 }
 
+@Test func firstUsedIsMinTimestamp() {
+    let s = UsageStats(events: [ev("a", day(1)), ev("a", day(10)), ev("a", day(5))], window: .allTime, now: now).summary(forKey: "a")
+    #expect(s?.firstUsed == day(10))
+}
+
 @Test func neverUsedIsNil() {
     #expect(UsageStats(events: [ev("a", day(1))], window: .allTime, now: now).summary(forKey: "zzz") == nil)
 }

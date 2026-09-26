@@ -27,6 +27,7 @@ public struct ProjectUsage: Sendable, Hashable {
 
 public struct UsageSummary: Sendable, Hashable {
     public let lastUsed: Date
+    public let firstUsed: Date
     public let countInWindow: Int
     public let allTimeCount: Int
     /// Most used first, then most recent, then path; Cowork (nil root) sorts by the same rule.
@@ -58,7 +59,8 @@ public struct UsageStats: Sendable {
     public func summary(for skill: Skill) -> UsageSummary? { summary(forKey: UsageKey.key(for: skill)) }
 
     public func summary(forKey key: String) -> UsageSummary? {
-        guard let events = byKey[key], let last = events.map(\.timestamp).max() else { return nil }
+        guard let events = byKey[key], let last = events.map(\.timestamp).max(),
+              let first = events.map(\.timestamp).min() else { return nil }
         let inWindow = cutoff.map { c in events.filter { $0.timestamp >= c }.count } ?? events.count
         let projects = Dictionary(grouping: events, by: { $0.projectRoot?.path }).map { path, evs in
             ProjectUsage(projectRoot: path.map { URL(fileURLWithPath: $0, isDirectory: true) },
@@ -68,7 +70,7 @@ public struct UsageStats: Sendable {
             if a.lastUsed != b.lastUsed { return a.lastUsed > b.lastUsed }
             return (a.projectRoot?.path ?? "") < (b.projectRoot?.path ?? "")
         }
-        return UsageSummary(lastUsed: last, countInWindow: inWindow, allTimeCount: events.count, byProject: projects)
+        return UsageSummary(lastUsed: last, firstUsed: first, countInWindow: inWindow, allTimeCount: events.count, byProject: projects)
     }
 }
 
