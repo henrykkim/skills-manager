@@ -103,4 +103,31 @@ public enum LibraryScope: Sendable, Hashable {
         let skills = (library.skills + library.builtIn).filter { scope.contains($0) }.count
         return plugins + skills
     }
+
+    /// Items specific to this exact location — never global/account items,
+    /// even when they are visible in the scope (spec: per-project menu count).
+    public static func specificCount(in library: Library, scope: LibraryScope) -> Int {
+        switch scope {
+        case .everywhere:
+            return availableCount(in: library, scope: scope)
+        case .cowork:
+            return library.plugins.filter { entry in
+                entry.locations.contains { $0.plugin.scope == .cowork }
+            }.count
+        case .project(let root):
+            let skills = library.skills.filter { entry in
+                entry.locations.contains {
+                    if case .project(let r, _) = $0.skill.source { return r.path == root.path }
+                    return false
+                }
+            }.count
+            let plugins = library.plugins.filter { entry in
+                entry.locations.contains {
+                    if case .project(let r) = $0.plugin.scope { return r.path == root.path }
+                    return false
+                }
+            }.count
+            return skills + plugins
+        }
+    }
 }

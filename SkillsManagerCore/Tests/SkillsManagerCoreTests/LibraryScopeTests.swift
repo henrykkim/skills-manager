@@ -98,3 +98,23 @@ private let projects = [Project(root: a, displayName: "A"), Project(root: b, dis
     // Cowork: bi (account) and cw@m — not the personal/project skills or the user plugin.
     #expect(LibraryScope.availableCount(in: lib, scope: .cowork) == 2)
 }
+
+@Test func specificCountOnlyCountsThisLocation() {
+    var lib = Library()
+    lib.skills = [entry([skill("g", .personal)]), entry([skill("pa", .project(root: a, subpath: nil))]),
+                  entry([skill("pb", .project(root: b, subpath: nil))])]
+    lib.builtIn = [entry([skill("bi", .account(userMade: false))])]
+    lib.plugins = [pentry([plugin("cw@m", .cowork)]), pentry([plugin("u@m", .user)]),
+                   pentry([plugin("pa@m", .project(root: a))])]
+    // Project a: pa skill + pa@m plugin — not g, bi, pb, u@m, or cw@m.
+    #expect(LibraryScope.specificCount(in: lib, scope: .project(root: a)) == 2)
+    // Project b has only its own project skill (pb) — no plugin.
+    #expect(LibraryScope.specificCount(in: lib, scope: .project(root: b)) == 1)
+    // A project with nothing of its own has zero.
+    let empty = URL(fileURLWithPath: "/Users/z/Empty", isDirectory: true)
+    #expect(LibraryScope.specificCount(in: lib, scope: .project(root: empty)) == 0)
+    // Cowork: only cw@m.
+    #expect(LibraryScope.specificCount(in: lib, scope: .cowork) == 1)
+    // Everywhere matches the total availableCount.
+    #expect(LibraryScope.specificCount(in: lib, scope: .everywhere) == LibraryScope.availableCount(in: lib, scope: .everywhere))
+}
