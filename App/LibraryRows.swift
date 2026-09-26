@@ -107,19 +107,22 @@ struct PluginRow: View {
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
-                LocationTags(tags: entry.tags).padding(.top, 2)
+                HStack(spacing: Spacing.sm) {
+                    LocationTags(tags: entry.tags).layoutPriority(1)
+                    if showsUsageHint {
+                        Spacer(minLength: 0)
+                        Text(UsageHint.text(lastUsed: usage?.lastUsed))
+                            .font(.metadata)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .help(usage.map {
+                                "Last used \($0.lastUsed.formatted(date: .abbreviated, time: .shortened)) · \($0.countInWindow) times in the selected period"
+                            } ?? "Not used yet")
+                    }
+                }
+                .padding(.top, 2)
             }
             Spacer()
-            if showsUsageHint {
-                Text(UsageHint.text(lastUsed: usage?.lastUsed))
-                    .font(.metadata)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .help(usage.map {
-                        "Last used \($0.lastUsed.formatted(date: .abbreviated, time: .shortened)) · \($0.countInWindow) times in the selected period"
-                    } ?? "Not used yet")
-            }
             StatusDot(isEnabled: plugin.isEnabled)
         }
         .padding(.vertical, 2)
