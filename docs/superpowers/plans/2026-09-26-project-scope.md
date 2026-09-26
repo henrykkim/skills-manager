@@ -19,6 +19,7 @@
 - Persisted scope key `libraryScope` in `UserDefaults`: `"everywhere"`, `"cowork"`, or `"project:<canonical root path>"`. Unknown or missing project → `everywhere`, silently.
 - Removing a hand-added project that is the current scope resets the scope to `everywhere`.
 - Spacing uses only the `Spacing` scale in `App/DesignSystem.swift`. Plain-English copy.
+- Layout (owner decision 2026-09-26): Mail-style sidebar toolbar, permanent sidebar (no toggle), no strip under search. See Task 3's Design decisions block.
 - **UI task (3) MUST invoke the design skills** `apple-design`, `better-ui`, `better-layout`, `better-writing` before editing views.
 - Core tests: `cd SkillsManagerCore && swift test`. App build: `xcodegen generate && xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager -configuration Debug -derivedDataPath build build`. After app changes the owner will see: `scripts/install-local.sh`. If `SkillsManagerCore/Package.resolved` shows as modified after an app build, `git checkout -- SkillsManagerCore/Package.resolved`.
 - Commit after every task; last line of every commit message: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
@@ -363,6 +364,15 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ---
 
 ### Task 3: Scope popup, filtering, footer, and card caption
+
+**Design decisions (owner-approved 2026-09-26 on the canvas, board C; these REPLACE the "bar under search" layout below and in Task 3's earlier commit):**
+- The strip under the search field is REMOVED entirely (no `Showing`, no `Sorted by` row). The search field stands alone at the top of the sidebar content.
+- The sidebar column becomes permanent: `.toolbar(removing: .sidebarToggle)` on the `NavigationSplitView`; `navigationSplitViewColumnWidth(min: 340, ideal: 360)`.
+- The sidebar column gets a Mail-style toolbar (declared with `.toolbar { }` on the sidebar content view): leading flexible space, then a centered TITLE control, then trailing the SORT button. Use `ToolbarItem { Spacer() }` for the flexible spaces; if macOS refuses spacers in the sidebar zone, place the title first and the sort button last and note it.
+- TITLE control: a `Menu` whose label is a two-line `VStack(alignment: .center, spacing: 1)`: line 1 the scope name in `.headline` with a small `chevron.down` (`.font(.caption2)`), line 2 a `.caption` secondary subtitle. Subtitle copy: Everywhere → `<S> skills · <P> plugins · <N> projects` (S = skills + built-in count, P = plugins, N = projects known); project or Cowork scope → `<A> available` where A = plugins + skills + built-in in scope, followed by ` · sorted by <sort label lowercased>` only when usage is enabled. Menu content: `Everywhere`; `Divider`; a `Section("Projects")` listing projects sorted by display name, each row `<name>` with a trailing count of available items in that scope (as `Text("\(name)  \(count)")` is acceptable if `LabeledContent` doesn't render in a Menu); `Divider`; `Cowork` with its count. Current scope checked (use a `Picker` with `.pickerStyle(.inline)` for the check marks, grouped as described). `.menuIndicator(.hidden)`, `.buttonStyle(.plain)` on the label so it reads as a title, `.help("Choose which project's skills to show")`, `.accessibilityLabel("Showing")`.
+- SORT button: `Menu` with label `Label("Sort", systemImage: "line.3.horizontal.decrease")`, `.labelStyle(.iconOnly)`, containing the two existing inline pickers `Sort by` and `Count`; shown only when `usage.isEnabled`.
+- Counts per scope come from a core helper: add `public static func availableCount(in library: Library, scope: LibraryScope) -> Int` to `LibraryScope` (plugins + skills + builtIn in scope), with a test mirroring `hiddenCountSpansAllRowKinds`.
+- Footer note and the Usage card caption stay as specified below. Everything else in this task's earlier sketch that concerns the strip is superseded.
 
 **Files:**
 - Modify: `App/LibraryView.swift`
