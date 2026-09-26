@@ -37,24 +37,6 @@ struct LibraryView: View {
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills, commands, and projects")
         .navigationTitle("Skills Manager")
         .toolbar {
-            if usage.isEnabled {
-                ToolbarItem {
-                    Menu {
-                        Picker("Sort by", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
-                            ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
-                        }
-                        .pickerStyle(.inline)
-                        Divider()
-                        Picker("Count", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
-                            ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
-                        }
-                        .pickerStyle(.inline)
-                    } label: {
-                        Label("Sort", systemImage: "arrow.up.arrow.down")
-                    }
-                    .help("Sort skills by name or by how you use them")
-                }
-            }
             ToolbarItem {
                 Button { showInstall = true } label: { Label("Install", systemImage: "plus") }
                     .help("Install a skill or plugin from a link or command")
@@ -139,7 +121,7 @@ struct LibraryView: View {
                 }
             }
             if !skillList.entries.isEmpty {
-                Section("Skills") {
+                Section {
                     ForEach(skillList.entries) { entry in
                         if skillList.dividerID == entry.id {
                             Divider()
@@ -151,6 +133,32 @@ struct LibraryView: View {
                             .tag(LibrarySelection.entry(entry.id))
                             .contextMenu { removeAddedProjectItems(roots: projectRoots(of: entry)) }
                     }
+                } header: {
+                    HStack {
+                        Text("Skills")
+                        Spacer()
+                        if usage.isEnabled {
+                            Menu {
+                                Picker("Sort by", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
+                                    ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
+                                }
+                                .pickerStyle(.inline)
+                                Divider()
+                                Picker("Count", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
+                                    ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
+                                }
+                                .pickerStyle(.inline)
+                            } label: {
+                                Label("Sort", systemImage: "arrow.up.arrow.down")
+                            }
+                            .labelStyle(.iconOnly)
+                            .menuStyle(.borderlessButton)
+                            .menuIndicator(.hidden)
+                            .help("Sort skills by name or by how you use them")
+                            .accessibilityLabel("Sort skills")
+                        }
+                    }
+                    .selectionDisabled()
                 }
             }
             if !filteredShared.isEmpty {
