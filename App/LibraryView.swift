@@ -13,6 +13,7 @@ enum LibrarySelection: Hashable {
 
 struct LibraryView: View {
     @Environment(InventoryStore.self) private var store
+    @Environment(UsageStore.self) private var usage
     @State private var selection: LibrarySelection?
     @State private var searchText = ""
     @State private var expandedPlugins: Set<String> = []
@@ -36,6 +37,24 @@ struct LibraryView: View {
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills, commands, and projects")
         .navigationTitle("Skills Manager")
         .toolbar {
+            if usage.isEnabled {
+                ToolbarItem {
+                    Menu {
+                        Picker("Sort by", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
+                            ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
+                        }
+                        .pickerStyle(.inline)
+                        Divider()
+                        Picker("Count", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
+                            ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
+                        }
+                        .pickerStyle(.inline)
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
+                    .help("Sort skills by name or by how you use them")
+                }
+            }
             ToolbarItem {
                 Button { showInstall = true } label: { Label("Install", systemImage: "plus") }
                     .help("Install a skill or plugin from a link or command")
@@ -121,7 +140,12 @@ struct LibraryView: View {
             if !filteredSkills.isEmpty {
                 Section("Skills") {
                     ForEach(filteredSkills) { entry in
-                        SkillEntryRow(entry: entry).tag(LibrarySelection.entry(entry.id))
+                        if usageDividerID == entry.id {
+                            Divider().listRowSeparator(.hidden)
+                        }
+                        SkillEntryRow(entry: entry, showsUsageHint: usage.isEnabled,
+                                     usage: usage.isEnabled ? usage.stats.summary(for: entry.skill) : nil)
+                            .tag(LibrarySelection.entry(entry.id))
                             .contextMenu { removeAddedProjectItems(roots: projectRoots(of: entry)) }
                     }
                 }
@@ -330,7 +354,23 @@ struct LibraryView: View {
     // MARK: Filtering
 
     private var filteredPlugins: [PluginEntry] { library.plugins.filter { matches($0) } }
-    private var filteredSkills: [SkillEntry] { library.skills.filter { matches($0) } }
+    private var filteredSkills: [SkillEntry] {
+        let matching = library.skills.filter { matches($0) }
+        guard usage.isEnabled else { return matching }
+        return UsageSort.sorted(matching, by: usage.sort, stats: usage.stats)
+    }
+
+    /// The id of the first never-used entry in `filteredSkills`, when both a
+    /// used and a never-used group exist under one of the usage sorts — the
+    /// divider renders just above it.
+    private var usageDividerID: String? {
+        guard usage.isEnabled, usage.sort == .lastUsed || usage.sort == .mostUsed else { return nil }
+        let skills = filteredSkills
+        guard let firstNeverUsedIndex = skills.firstIndex(where: { usage.stats.summary(for: $0.skill) == nil })
+        else { return nil }
+        guard firstNeverUsedIndex > 0 else { return nil }
+        return skills[firstNeverUsedIndex].id
+    }
     private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { matches($0) } }
     private var filteredShared: [Skill] { store.inventory.sharedSkills.filter { matches($0) } }
     private var filteredNotes: [NoteFolder] {

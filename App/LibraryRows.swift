@@ -20,6 +20,10 @@ struct SkillRow: View {
 
 struct SkillEntryRow: View {
     let entry: SkillEntry
+    /// Whether usage tracking is on. When false, no hint shows at all.
+    var showsUsageHint: Bool = false
+    /// nil means never used (still shows "Not used yet" when `showsUsageHint`).
+    var usage: UsageSummary? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -46,6 +50,17 @@ struct SkillEntryRow: View {
                         .lineLimit(1)
                         .fixedSize()
                         .help("This skill is in more than one place and the copies aren't identical. The details show which one Claude uses.")
+                }
+                if showsUsageHint {
+                    Spacer(minLength: 0)
+                    Text(UsageHint.text(lastUsed: usage?.lastUsed))
+                        .font(.metadata)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .help(usage.map {
+                            "Last used \($0.lastUsed.formatted(date: .abbreviated, time: .shortened)) · \($0.countInWindow) times in the selected period"
+                        } ?? "Not used yet")
                 }
             }
         }
