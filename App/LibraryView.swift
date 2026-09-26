@@ -260,6 +260,10 @@ struct LibraryView: View {
         }
     }
 
+    private var projectNames: [String: String] {
+        Dictionary(store.inventory.projects.map { ($0.root.path, $0.displayName) }, uniquingKeysWith: { a, _ in a })
+    }
+
     private var isEmptyLibrary: Bool {
         filteredPlugins.isEmpty && filteredSkills.isEmpty && filteredShared.isEmpty
             && filteredNotes.isEmpty && filteredBuiltIn.isEmpty && store.inventory.issues.isEmpty
@@ -271,14 +275,14 @@ struct LibraryView: View {
         case .entry(let id):
             if let entry = (library.skills + library.builtIn).first(where: { $0.id == id }) {
                 SkillDetailView(skill: entry.skill, parentPlugin: nil, entry: entry,
-                                accountLastSynced: store.inventory.accountLastSynced)
+                                accountLastSynced: store.inventory.accountLastSynced, projectNames: projectNames)
             } else {
                 missingSelection
             }
         case .skill(let id):
             if let skill = allSkills.first(where: { $0.id == id }) {
                 SkillDetailView(skill: skill, parentPlugin: parentPlugin(of: skill), entry: nil,
-                                accountLastSynced: nil)
+                                accountLastSynced: nil, projectNames: projectNames)
             } else {
                 missingSelection
             }

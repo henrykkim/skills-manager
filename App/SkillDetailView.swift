@@ -7,6 +7,9 @@ struct SkillDetailView: View {
     let parentPlugin: Plugin?
     let entry: SkillEntry?
     let accountLastSynced: Date?
+    var projectNames: [String: String] = [:]
+
+    @Environment(UsageStore.self) private var usage
 
     var body: some View {
         ScrollView {
@@ -27,6 +30,12 @@ struct SkillDetailView: View {
                 if let entry {
                     WhereItWorksSection(lines: WhereItWorks.lines(
                         for: entry, lastSynced: accountLastSynced, home: ClaudePaths().home))
+                }
+
+                if usage.isEnabled {
+                    UsageSection(skill: skill, summary: usage.stats.summary(for: skill), window: usage.window,
+                                 isAccountSkill: { if case .account = skill.source { return true }; return false }(),
+                                 projectNames: projectNames)
                 }
 
                 if let whenToUse = skill.whenToUse {
