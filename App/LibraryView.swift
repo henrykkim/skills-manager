@@ -15,7 +15,6 @@ struct LibraryView: View {
     @Environment(InventoryStore.self) private var store
     @Environment(UsageStore.self) private var usage
     @State private var selection: LibrarySelection?
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var searchText = ""
     @State private var expandedPlugins: Set<String> = []
     @State private var builtInExpanded = false
@@ -29,7 +28,7 @@ struct LibraryView: View {
         runner: ShellCommandRunner())
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView {
             sidebar
                 .navigationSplitViewColumnWidth(min: 260, ideal: 300)
         } detail: {
@@ -237,25 +236,38 @@ struct LibraryView: View {
             Text(addFolderMessage ?? "")
         }
         .onReceive(NotificationCenter.default.publisher(for: .showAddFolder)) { _ in pickFolder() }
-        .toolbar {
-            if usage.isEnabled && columnVisibility != .detailOnly {
-                ToolbarItem {
-                    Menu {
-                        Picker("Sort by", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
-                            ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if usage.isEnabled {
+                VStack(spacing: 0) {
+                    HStack(spacing: Spacing.sm) {
+                        Text("Sorted by").font(.caption).foregroundStyle(.secondary)
+                        Menu {
+                            Picker("Sort order", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
+                                ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
+                            }
+                            .pickerStyle(.inline)
+                        } label: {
+                            Text(usage.sort.label)
                         }
-                        .pickerStyle(.inline)
-                        Divider()
-                        Picker("Count", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
-                            ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
+                        .accessibilityLabel("Sort order")
+                        Menu {
+                            Picker("Count period", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
+                                ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
+                            }
+                            .pickerStyle(.inline)
+                        } label: {
+                            Text(usage.window.label)
                         }
-                        .pickerStyle(.inline)
-                    } label: {
-                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                        .accessibilityLabel("Count period")
+                        Spacer()
                     }
-                    .help("Sort by name or by how you use them")
-                    .accessibilityLabel("Sort")
+                    .menuStyle(.button)
+                    .controlSize(.small)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.xs)
+                    Divider()
                 }
+                .background(.bar)
             }
         }
     }
