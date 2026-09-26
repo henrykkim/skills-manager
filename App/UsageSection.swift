@@ -12,16 +12,11 @@ struct UsageSection: View {
 
     var body: some View {
         SectionCard(title: "Usage") {
-            HStack {
-                Spacer()
-                Text("Counts from Claude Code and Cowork sessions")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
             if let summary {
                 statTiles(for: summary)
                 Divider()
                 Text("By project")
+                    .textCase(.uppercase)
                     .font(.cardLabel)
                     .foregroundStyle(.secondary)
                 projectRows(for: summary)
@@ -41,6 +36,11 @@ struct UsageSection: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+        } trailing: {
+            Text("Counts from Claude Code and Cowork sessions")
+                .font(.metadata)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
         }
     }
 
@@ -48,17 +48,29 @@ struct UsageSection: View {
 
     @ViewBuilder
     private func statTiles(for summary: UsageSummary) -> some View {
-        let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
-        LazyVGrid(columns: columns, spacing: Spacing.sm) {
-            StatTile(title: "Last used",
-                     value: UsageHint.text(lastUsed: summary.lastUsed).replacingOccurrences(of: "Used ", with: ""),
-                     caption: summary.lastUsed.formatted(date: .omitted, time: .shortened))
-            StatTile(title: window.label,
-                     value: timesLabel(summary.countInWindow),
-                     caption: rateCaption(count: summary.countInWindow, windowDays: windowDays(for: summary)))
-            StatTile(title: "All time",
-                     value: timesLabel(summary.allTimeCount),
-                     caption: "since \(summary.firstUsed.formatted(.dateTime.month(.abbreviated).day().year()))")
+        let lastUsedTile = StatTile(title: "Last used",
+                                     value: UsageHint.relativeDay(lastUsed: summary.lastUsed),
+                                     caption: summary.lastUsed.formatted(date: .omitted, time: .shortened))
+        let allTimeTile = StatTile(title: "All time",
+                                    value: timesLabel(summary.allTimeCount),
+                                    caption: "since \(summary.firstUsed.formatted(.dateTime.month(.abbreviated).day().year()))")
+        // Last 30 days and All time show the same count when the window itself
+        // is All time, so drop the redundant middle tile in that case.
+        if window == .allTime {
+            let columns = [GridItem(.flexible()), GridItem(.flexible())]
+            LazyVGrid(columns: columns, spacing: Spacing.sm) {
+                lastUsedTile
+                allTimeTile
+            }
+        } else {
+            let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+            LazyVGrid(columns: columns, spacing: Spacing.sm) {
+                lastUsedTile
+                StatTile(title: window.label,
+                         value: timesLabel(summary.countInWindow),
+                         caption: rateCaption(count: summary.countInWindow, windowDays: windowDays(for: summary)))
+                allTimeTile
+            }
         }
     }
 
@@ -77,6 +89,7 @@ struct UsageSection: View {
 
     /// Plain-English cadence, no decimals (spec §7).
     private func rateCaption(count: Int, windowDays: Double) -> String {
+        guard count > 0 else { return "none in this period" }
         guard count > 1 else { return "once" }
         let perWeek = Double(count) / (windowDays / 7)
         if perWeek >= 2 { return "about \(Int(perWeek.rounded())) a week" }
