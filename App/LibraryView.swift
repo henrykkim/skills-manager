@@ -15,6 +15,7 @@ struct LibraryView: View {
     @Environment(InventoryStore.self) private var store
     @Environment(UsageStore.self) private var usage
     @State private var selection: LibrarySelection?
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var searchText = ""
     @State private var expandedPlugins: Set<String> = []
     @State private var builtInExpanded = false
@@ -28,7 +29,7 @@ struct LibraryView: View {
         runner: ShellCommandRunner())
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
                 .navigationSplitViewColumnWidth(min: 260, ideal: 300)
         } detail: {
@@ -237,7 +238,7 @@ struct LibraryView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .showAddFolder)) { _ in pickFolder() }
         .toolbar {
-            if usage.isEnabled {
+            if usage.isEnabled && columnVisibility != .detailOnly {
                 ToolbarItem {
                     Menu {
                         Picker("Sort by", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
