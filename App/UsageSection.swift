@@ -9,6 +9,7 @@ struct UsageSection: View {
     let isAccountSkill: Bool
     /// Canonical project root path → display name, from the inventory.
     let projectNames: [String: String]
+    var scopeName: String? = nil
 
     var body: some View {
         SectionCard(title: "Usage") {
@@ -37,7 +38,8 @@ struct UsageSection: View {
                     .foregroundStyle(.secondary)
             }
         } trailing: {
-            Text("Counts from Claude Code and Cowork sessions")
+            Text(scopeName.map { "Counts from Claude Code and Cowork sessions in \($0)" }
+                 ?? "Counts from Claude Code and Cowork sessions")
                 .font(.metadata)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)

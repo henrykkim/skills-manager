@@ -190,6 +190,19 @@ struct LibraryView: View {
                         .tag(LibrarySelection.needsAttention)
                 }
             }
+            if store.scope != .everywhere, hiddenCount > 0 {
+                Section {
+                    HStack(spacing: Spacing.xs) {
+                        Text(hiddenCount == 1 ? "1 item not available in \(scopeName)"
+                                              : "\(hiddenCount) items not available in \(scopeName)")
+                        Button("Show Everywhere") { store.setScope(.everywhere) }
+                            .buttonStyle(.link)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .selectionDisabled()
+                }
+            }
         }
         .overlay {
             if isEmptyLibrary {
@@ -237,9 +250,25 @@ struct LibraryView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .showAddFolder)) { _ in pickFolder() }
         .safeAreaInset(edge: .top, spacing: 0) {
-            if usage.isEnabled {
-                VStack(spacing: 0) {
-                    HStack(spacing: Spacing.sm) {
+            VStack(spacing: 0) {
+                HStack(spacing: Spacing.sm) {
+                    Text("Showing").font(.caption).foregroundStyle(.secondary)
+                    Menu {
+                        Picker("Scope", selection: Binding(get: { store.scope }, set: { store.setScope($0) })) {
+                            Text("Everywhere").tag(LibraryScope.everywhere)
+                            ForEach(store.inventory.projects.sorted {
+                                $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+                            }) { project in
+                                Text(project.displayName).tag(LibraryScope.project(root: project.root))
+                            }
+                            Text("Cowork").tag(LibraryScope.cowork)
+                        }
+                        .pickerStyle(.inline)
+                    } label: {
+                        Text(store.scope.label(projects: store.inventory.projects))
+                    }
+                    .accessibilityLabel("Showing")
+                    if usage.isEnabled {
                         Text("Sorted by").font(.caption).foregroundStyle(.secondary)
                         Menu {
                             Picker("Sort order", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
@@ -259,16 +288,16 @@ struct LibraryView: View {
                             Text(usage.window.label)
                         }
                         .accessibilityLabel("Count period")
-                        Spacer()
                     }
-                    .menuStyle(.button)
-                    .controlSize(.small)
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.bottom, Spacing.sm)  // the search field already carries its own inset above
-                    Divider()
+                    Spacer()
                 }
-                .background(.bar)
+                .menuStyle(.button)
+                .controlSize(.small)
+                .padding(.horizontal, Spacing.md)
+                .padding(.bottom, Spacing.sm)  // the search field already carries its own inset above
+                Divider()
             }
+            .background(.bar)
         }
     }
 
@@ -292,6 +321,11 @@ struct LibraryView: View {
     private var isEmptyLibrary: Bool {
         filteredPlugins.isEmpty && filteredSkills.isEmpty && filteredShared.isEmpty
             && filteredNotes.isEmpty && filteredBuiltIn.isEmpty && store.inventory.issues.isEmpty
+    }
+
+    private var scopeName: String { store.scope.label(projects: store.inventory.projects) }
+    private var hiddenCount: Int {
+        LibraryScope.hiddenCount(in: library, sharedSkills: store.inventory.sharedSkills, scope: store.scope)
     }
 
     @ViewBuilder
@@ -385,13 +419,13 @@ struct LibraryView: View {
     // MARK: Filtering
 
     private var filteredPlugins: [PluginEntry] {
-        let matching = library.plugins.filter { matches($0) }
+        let matching = library.plugins.filter { store.scope.contains($0) && matches($0) }
         guard usage.isEnabled else { return matching }
         return UsageSort.sortedPlugins(matching, by: usage.sort, stats: usage.stats)
     }
 
     private var filteredSkills: [SkillEntry] {
-        let matching = library.skills.filter { matches($0) }
+        let matching = library.skills.filter { store.scope.contains($0) && matches($0) }
         guard usage.isEnabled else { return matching }
         return UsageSort.sorted(matching, by: usage.sort, stats: usage.stats)
     }
@@ -434,8 +468,11 @@ struct LibraryView: View {
         usageListModel(entries: filteredPlugins) { usage.stats.summary(forPlugin: $0.plugin) }
     }
 
-    private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { matches($0) } }
-    private var filteredShared: [Skill] { store.inventory.sharedSkills.filter { matches($0) } }
+    private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { store.scope.contains($0) && matches($0) } }
+    private var filteredShared: [Skill] {
+        guard store.scope.containsSharedSkill() else { return [] }
+        return store.inventory.sharedSkills.filter { matches($0) }
+    }
     private var filteredNotes: [NoteFolder] {
         guard !searchText.isEmpty else { return store.inventory.notes }
         let q = searchText.localizedLowercase
