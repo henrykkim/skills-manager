@@ -19,7 +19,7 @@
 - The 30-day window is `now - 30 * 86_400` seconds; an event exactly at the cutoff counts.
 - Copy is plain English. Exact strings: `Not used yet`, `Usage in claude.ai isn't tracked.`, sort labels `Name`, `Last used`, `Most used`, window labels `Last 30 days`, `All time`, Settings copy in Task 6.
 - Spacing uses only the `Spacing` scale in `App/DesignSystem.swift`.
-- **STOP before Task 6.** The owner wants a separate design session for how usage looks. Tasks 6–8 build the plain functional version described here; that session may revise them. Do not start Task 6 until the owner has been reminded and has answered.
+- **Design session held 2026-09-25**; owner approved the canvas at https://claude.ai/artifact/UeGJ62YwzCpdQ2MEKMu9a4 with no changes. Each UI task carries a "Design decisions" block that overrides its code sketch.
 - **UI tasks (6, 7, 8) MUST invoke the design skills** `apple-design`, `make-interfaces-feel-better`, `better-ui`, `better-layout`, `better-typography`, `better-accessibility`, and `better-writing` before editing views.
 - Core tests: `cd SkillsManagerCore && swift test`. App build: from repo root, `xcodegen generate && xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager -configuration Debug -derivedDataPath build build`.
 - After any app change the owner will look at: run `scripts/install-local.sh` (one copy in /Applications).
@@ -922,6 +922,9 @@ Tell the owner: "Core and data are done and the store file is populating. You as
 
 ### Task 6: Settings window with the Usage switch
 
+**Design decisions (owner-approved 2026-09-25, override the code sketch below where they differ):**
+The Settings › Usage card, top to bottom: (1) the switch `Show when and how often skills are used`; (2) the disclosure copy exactly: `Reads skill invocation records from Claude Code and Cowork session logs. Message text is never read or stored. Turning this off deletes the usage data Skills Manager has collected.`; (3) a divider, then a four-row facts list rendered with `LabeledContent`: `Reads` → `Claude Code sessions · Cowork sessions`; `Not covered` → `claude.ai in the browser`; `Last scanned` → relative time of the last completed scan (`Never` before the first); `Collected` → `<N> invocations across <M> sessions` (M = distinct session ids; singular forms when 1); (4) two trailing buttons right-aligned: `Show Usage File in Finder` (`NSWorkspace.shared.activateFileViewerSelecting([UsageStore.storeURL])`, disabled when the file does not exist) and `Rescan Now` (calls `usage.refresh()`, disabled while a scan is running). When the switch is off, rows 3 and 4 are hidden. To support this, `UsageStore` gains `private(set) var lastScanned: Date?` (set on the MainActor when a scan completes), `private(set) var isScanning: Bool`, `var eventCount: Int { data.events.count }`, and `var sessionCount: Int { Set(data.events.map(\.sessionID)).count }`; `clear()` resets `lastScanned` to nil. Window width 480.
+
 **Files:**
 - Create: `App/SettingsView.swift`
 - Modify: `App/SkillsManagerApp.swift` (add `Settings` scene)
@@ -986,6 +989,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ---
 
 ### Task 7: Sort menu, window picker, and row hint
+
+**Design decisions (owner-approved 2026-09-25, override the code sketch below where they differ):**
+The Sort toolbar button uses `arrow.up.arrow.down` and sits before Install. Its menu has two inline pickers with section labels `Sort by` (Name, Last used, Most used) and `Count` (Last 30 days, All time). The row hint is right-aligned on the tag line in `.metadata` font, tertiary color, tabular digits, and reads `Used today`, `Used yesterday`, `Used N days ago` up to 21 days, then `Used <abbreviated date>` (e.g. `Used Aug 12`). Never-used skills read `Not used yet` in the same style. In the two usage sorts, a thin divider row separates the used group from the never-used group (only when both groups are non-empty). Put the hint-text rule in a small pure helper `UsageHint.text(lastUsed: Date?, now: Date) -> String` in the app target so the format lives in one place.
 
 **Files:**
 - Modify: `App/LibraryView.swift` (toolbar menu; apply sort to `filteredSkills`)
@@ -1078,6 +1084,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ---
 
 ### Task 8: Usage section in skill detail
+
+**Design decisions (owner-approved 2026-09-25, override the code sketch below where they differ):**
+The Usage card header row shows the title `Usage` and a right-aligned tertiary caption `Counts from Claude Code and Cowork sessions`. Below: a three-column grid of stat tiles (white background, hairline border, 8 pt radius): `Last used` with the relative day as the big value and the time as the caption; the window label (`Last 30 days`) with `N times` and a rate caption (`about N a week` when ≥ 2 per week in the window, `once a week`/`a few times a month`/`once` otherwise, plain English, no decimals); `All time` with `N times` and `since <abbreviated date of first event>`. Then a divider, a `BY PROJECT` label, and one row per project: name (140 pt), a proportional bar (6 pt tall, 3 pt radius, filled width = count / max count, accent color; Cowork row uses gray fill and gray name), the count (tabular), and the last-used date right-aligned (92 pt). Never used: the card body is `Not used yet` plus one line `Counts start the first time you run <invocation> in Claude Code or Cowork.` with the invocation in monospace. Account skills append `Usage in claude.ai isn’t tracked. These counts cover Claude Code and Cowork only.` `UsageSummary` gains nothing; compute the first-event date from `byProject` last-used values is NOT sufficient, so add `public let firstUsed: Date` to `UsageSummary` in core (min timestamp) with a test, as the first step of this task.
 
 **Files:**
 - Create: `App/UsageSection.swift`
