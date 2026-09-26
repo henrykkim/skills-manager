@@ -65,9 +65,24 @@ final class UsageStore {
                                          coworkSessions: paths.coworkSessionsDir, previous: previous)
             if next != previous { try? UsageStoreFile.save(next, to: url) }
             await MainActor.run { [weak self] in
-                guard let self, generation == self.refreshGeneration else { return }
+                guard let self else { return }
+                guard generation == self.refreshGeneration else {
+                    // Superseded by a later refresh (or by clear()). If
+                    // tracking is now off, the save above may have recreated
+                    // the file after clear() deleted it — remove it again. If
+                    // tracking is still on, a newer refresh owns the file.
+                    if !self.isEnabled { UsageStoreFile.delete(at: url) }
+                    return
+                }
                 defer { self.isScanning = false }
-                guard self.isEnabled else { return }
+                guard self.isEnabled else {
+                    // Tracking was turned off while this scan's save was in
+                    // flight: the save above may have recreated the file
+                    // after clear() deleted it, so remove it again now that
+                    // we're back on the main actor.
+                    UsageStoreFile.delete(at: url)
+                    return
+                }
                 self.data = next
                 self.lastScanned = Date()
                 self.rebuildStats()

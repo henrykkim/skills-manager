@@ -111,7 +111,8 @@ struct LibraryView: View {
     }
 
     private var sidebar: some View {
-        List(selection: $selection) {
+        let skillList = skillListModel
+        return List(selection: $selection) {
             if !filteredPlugins.isEmpty {
                 Section("Plugins") {
                     // Expandable (spec §5.1): bundled skills are selectable rows
@@ -137,16 +138,16 @@ struct LibraryView: View {
                     }
                 }
             }
-            if !filteredSkills.isEmpty {
+            if !skillList.entries.isEmpty {
                 Section("Skills") {
-                    ForEach(filteredSkills) { entry in
-                        if usageDividerID == entry.id {
+                    ForEach(skillList.entries) { entry in
+                        if skillList.dividerID == entry.id {
                             Divider()
                                 .listRowSeparator(.hidden)
                                 .selectionDisabled()
                         }
                         SkillEntryRow(entry: entry, showsUsageHint: usage.isEnabled,
-                                     usage: usage.isEnabled ? usage.stats.summary(for: entry.skill) : nil)
+                                     usage: skillList.summaries[entry.id])
                             .tag(LibrarySelection.entry(entry.id))
                             .contextMenu { removeAddedProjectItems(roots: projectRoots(of: entry)) }
                     }
@@ -366,16 +367,31 @@ struct LibraryView: View {
         return UsageSort.sorted(matching, by: usage.sort, stats: usage.stats)
     }
 
-    /// The id of the first never-used entry in `filteredSkills`, when both a
-    /// used and a never-used group exist under one of the usage sorts — the
-    /// divider renders just above it.
-    private var usageDividerID: String? {
-        guard usage.isEnabled, usage.sort == .lastUsed || usage.sort == .mostUsed else { return nil }
-        let skills = filteredSkills
-        guard let firstNeverUsedIndex = skills.firstIndex(where: { usage.stats.summary(for: $0.skill) == nil })
-        else { return nil }
-        guard firstNeverUsedIndex > 0 else { return nil }
-        return skills[firstNeverUsedIndex].id
+    /// Precomputed once per body evaluation: the sorted skills, each entry's
+    /// usage summary (looked up once, not recomputed per row), and the id of
+    /// the first never-used entry when both a used and a never-used group
+    /// exist under one of the usage sorts — the divider renders just above it.
+    private struct SkillListModel {
+        let entries: [SkillEntry]
+        let summaries: [String: UsageSummary]
+        let dividerID: String?
+    }
+
+    private var skillListModel: SkillListModel {
+        let entries = filteredSkills
+        guard usage.isEnabled else { return SkillListModel(entries: entries, summaries: [:], dividerID: nil) }
+        var summaries: [String: UsageSummary] = [:]
+        summaries.reserveCapacity(entries.count)
+        for entry in entries {
+            if let summary = usage.stats.summary(for: entry.skill) { summaries[entry.id] = summary }
+        }
+        var dividerID: String?
+        if usage.sort == .lastUsed || usage.sort == .mostUsed,
+           let firstNeverUsedIndex = entries.firstIndex(where: { summaries[$0.id] == nil }),
+           firstNeverUsedIndex > 0 {
+            dividerID = entries[firstNeverUsedIndex].id
+        }
+        return SkillListModel(entries: entries, summaries: summaries, dividerID: dividerID)
     }
     private var filteredBuiltIn: [SkillEntry] { library.builtIn.filter { matches($0) } }
     private var filteredShared: [Skill] { store.inventory.sharedSkills.filter { matches($0) } }
