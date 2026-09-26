@@ -41,7 +41,7 @@ struct SkillsManagerApp: App {
         }
 
         Settings {
-            SettingsView().environment(usage)
+            SettingsView(updater: updaterController.updater).environment(usage)
         }
     }
 }

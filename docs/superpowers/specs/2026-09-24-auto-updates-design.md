@@ -86,7 +86,7 @@ and a window that offers new versions.
 | `SUPublicEDKey` | the owner's public EdDSA key (base64) |
 | `SUEnableAutomaticChecks` | `$(SU_AUTOMATIC_CHECKS)` |
 | `SUAutomaticallyUpdate` | `NO` |
-| `SUAllowsAutomaticUpdates` | `NO` |
+| `SUAllowsAutomaticUpdates` | `YES` (since 0.4.0; was `NO`, see amendment below) |
 
 - **Local builds have checks off:** `project.yml` defines the build setting
   `SU_AUTOMATIC_CHECKS: NO`. The release workflow passes
@@ -221,3 +221,18 @@ still bumped by hand each release.
 - **Sparkle version drift:** the CI `sign_update` tool comes from the same
   SwiftPM artifact as the embedded `Sparkle.framework`, so the two can never
   drift apart. Both are pinned by the single `exactVersion` in `project.yml`.
+
+## Amendment 2026-09-26: optional automatic installs (0.4.0)
+
+The owner asked for the option other Mac apps offer. Ask-first stays the
+default (`SUAutomaticallyUpdate` `NO`), but `SUAllowsAutomaticUpdates` is now
+`YES`, so:
+
+- Sparkle's update window shows its standard "Automatically download and
+  install updates in the future" checkbox.
+- Settings gains an **Updates** section with the same setting as a switch
+  ("Download and install updates automatically", off by default), one line of
+  explanation, and a **Check Now** button. Both surfaces read and write
+  `SPUUpdater.automaticallyDownloadsUpdates`, which Sparkle persists.
+- `scripts/check-update-settings.sh` now expects `SUAllowsAutomaticUpdates`
+  to be `true`. Automatic *checks* are unchanged (on in CI builds, off locally).
