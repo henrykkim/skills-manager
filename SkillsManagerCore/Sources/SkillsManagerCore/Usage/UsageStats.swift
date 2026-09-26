@@ -64,6 +64,35 @@ public struct UsageStats: Sendable {
 
     public func summary(forKey key: String) -> UsageSummary? { summaries[key] }
 
+    public func summary(forPlugin plugin: Plugin) -> UsageSummary? {
+        let skillSummaries = plugin.skills.compactMap { summary(for: $0) }
+        guard !skillSummaries.isEmpty else { return nil }
+        let lastUsed = skillSummaries.map(\.lastUsed).max()!
+        let firstUsed = skillSummaries.map(\.firstUsed).min()!
+        let countInWindow = skillSummaries.reduce(0) { $0 + $1.countInWindow }
+        let allTimeCount = skillSummaries.reduce(0) { $0 + $1.allTimeCount }
+        var merged: [String: ProjectUsage] = [:]
+        for s in skillSummaries {
+            for p in s.byProject {
+                let key = p.projectRoot?.path ?? ""
+                if let existing = merged[key] {
+                    merged[key] = ProjectUsage(projectRoot: existing.projectRoot,
+                                                count: existing.count + p.count,
+                                                lastUsed: max(existing.lastUsed, p.lastUsed))
+                } else {
+                    merged[key] = p
+                }
+            }
+        }
+        let byProject = merged.values.sorted { a, b in
+            if a.count != b.count { return a.count > b.count }
+            if a.lastUsed != b.lastUsed { return a.lastUsed > b.lastUsed }
+            return (a.projectRoot?.path ?? "") < (b.projectRoot?.path ?? "")
+        }
+        return UsageSummary(lastUsed: lastUsed, firstUsed: firstUsed, countInWindow: countInWindow,
+                             allTimeCount: allTimeCount, byProject: byProject)
+    }
+
     private static func summary(for events: [SkillUsageEvent], cutoff: Date?) -> UsageSummary? {
         guard let last = events.map(\.timestamp).max(),
               let first = events.map(\.timestamp).min() else { return nil }
@@ -100,6 +129,27 @@ public enum UsageSort: String, CaseIterable, Sendable, Hashable {
         }
         if sort == .name { return entries.sorted(by: byName) }
         let summaries = Dictionary(entries.map { ($0.id, stats.summary(for: $0.skill)) }, uniquingKeysWith: { first, _ in first })
+        return entries.sorted { a, b in
+            switch (summaries[a.id]!, summaries[b.id]!) {
+            case (nil, nil): return byName(a, b)
+            case (nil, _): return false
+            case (_, nil): return true
+            case (let sa?, let sb?):
+                if sort == .mostUsed, sa.countInWindow != sb.countInWindow { return sa.countInWindow > sb.countInWindow }
+                if sa.lastUsed != sb.lastUsed { return sa.lastUsed > sb.lastUsed }
+                return byName(a, b)
+            }
+        }
+    }
+
+    /// Same semantics as `sorted(_:by:stats:)`, for plugins.
+    public static func sortedPlugins(_ entries: [PluginEntry], by sort: UsageSort, stats: UsageStats) -> [PluginEntry] {
+        let byName: (PluginEntry, PluginEntry) -> Bool = {
+            let c = $0.plugin.name.localizedStandardCompare($1.plugin.name)
+            return c != .orderedSame ? c == .orderedAscending : $0.id < $1.id
+        }
+        if sort == .name { return entries.sorted(by: byName) }
+        let summaries = Dictionary(entries.map { ($0.id, stats.summary(forPlugin: $0.plugin)) }, uniquingKeysWith: { first, _ in first })
         return entries.sorted { a, b in
             switch (summaries[a.id]!, summaries[b.id]!) {
             case (nil, nil): return byName(a, b)
