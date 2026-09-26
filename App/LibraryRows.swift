@@ -85,6 +85,10 @@ struct NoteRow: View {
 
 struct PluginRow: View {
     let entry: PluginEntry
+    /// Whether usage tracking is on. When false, no hint shows at all.
+    var showsUsageHint: Bool = false
+    /// nil means never used (still shows "Not used yet" when `showsUsageHint`).
+    var usage: UsageSummary? = nil
     private var plugin: Plugin { entry.plugin }
 
     var body: some View {
@@ -106,6 +110,16 @@ struct PluginRow: View {
                 LocationTags(tags: entry.tags).padding(.top, 2)
             }
             Spacer()
+            if showsUsageHint {
+                Text(UsageHint.text(lastUsed: usage?.lastUsed))
+                    .font(.metadata)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(usage.map {
+                        "Last used \($0.lastUsed.formatted(date: .abbreviated, time: .shortened)) · \($0.countInWindow) times in the selected period"
+                    } ?? "Not used yet")
+            }
             StatusDot(isEnabled: plugin.isEnabled)
         }
         .padding(.vertical, 2)
