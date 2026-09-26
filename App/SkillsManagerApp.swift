@@ -38,5 +38,9 @@ struct SkillsManagerApp: App {
                     .disabled(store.isLoading)
             }
         }
+
+        Settings {
+            SettingsView().environment(usage)
+        }
     }
 }

@@ -8,6 +8,12 @@ import SkillsManagerCore
 @Observable
 final class UsageStore {
     private(set) var stats = UsageStats(events: [], window: .last30Days)
+    /// When the most recent scan completed. Nil before the first scan.
+    private(set) var lastScanned: Date?
+    /// Whether a scan is currently running, off the main thread.
+    private(set) var isScanning = false
+    var eventCount: Int { data.events.count }
+    var sessionCount: Int { Set(data.events.map(\.sessionID)).count }
     var window: UsageWindow {
         didSet { defaults.set(window.rawValue, forKey: Self.windowKey); rebuildStats() }
     }
@@ -50,6 +56,7 @@ final class UsageStore {
         guard isEnabled else { return }
         refreshGeneration += 1
         let generation = refreshGeneration
+        isScanning = true
         let paths = self.paths
         let url = Self.storeURL
         Task.detached(priority: .utility) {
@@ -58,8 +65,11 @@ final class UsageStore {
                                          coworkSessions: paths.coworkSessionsDir, previous: previous)
             if next != previous { try? UsageStoreFile.save(next, to: url) }
             await MainActor.run { [weak self] in
-                guard let self, generation == self.refreshGeneration, self.isEnabled else { return }
+                guard let self, generation == self.refreshGeneration else { return }
+                defer { self.isScanning = false }
+                guard self.isEnabled else { return }
                 self.data = next
+                self.lastScanned = Date()
                 self.rebuildStats()
             }
         }
@@ -67,8 +77,10 @@ final class UsageStore {
 
     private func clear() {
         refreshGeneration += 1
+        isScanning = false
         UsageStoreFile.delete(at: Self.storeURL)
         data = UsageStoreData()
+        lastScanned = nil
         rebuildStats()
     }
 
