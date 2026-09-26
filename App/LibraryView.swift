@@ -264,7 +264,7 @@ struct LibraryView: View {
                     .menuStyle(.button)
                     .controlSize(.small)
                     .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, Spacing.xs)
+                    .padding(.vertical, Spacing.sm)
                     Divider()
                 }
                 .background(.bar)
