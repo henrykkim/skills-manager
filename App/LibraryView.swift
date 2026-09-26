@@ -281,14 +281,16 @@ struct LibraryView: View {
     /// capsule, matching Mail's own utility buttons.
     @ToolbarContentBuilder
     private var sidebarToolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigation) { Spacer() }
         if #available(macOS 26, *) {
+            ToolbarSpacer(.flexible, placement: .navigation)
             ToolbarItem(placement: .principal) { titleMenu }
                 .sharedBackgroundVisibility(.hidden)
+            ToolbarSpacer(.flexible)
         } else {
+            ToolbarItem(placement: .navigation) { Spacer() }
             ToolbarItem(placement: .principal) { titleMenu }
+            ToolbarItem { Spacer() }
         }
-        ToolbarItem { Spacer() }
         ToolbarItem { sortMenu }
     }
 
@@ -302,12 +304,13 @@ struct LibraryView: View {
                 Divider()
                 Section("Projects") {
                     ForEach(sortedProjects) { project in
-                        Text("\(project.displayName)  \(LibraryScope.availableCount(in: library, scope: .project(root: project.root)))")
+                        let specific = LibraryScope.specificCount(in: library, scope: .project(root: project.root))
+                        Text(specific > 0 ? "\(project.displayName)  \(specific)" : project.displayName)
                             .tag(LibraryScope.project(root: project.root))
                     }
                 }
                 Divider()
-                Text("Cowork  \(LibraryScope.availableCount(in: library, scope: .cowork))").tag(LibraryScope.cowork)
+                Text("Cowork  \(LibraryScope.specificCount(in: library, scope: .cowork))").tag(LibraryScope.cowork)
             }
             .pickerStyle(.inline)
         } label: {
