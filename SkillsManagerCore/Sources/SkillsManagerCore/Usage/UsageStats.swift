@@ -44,22 +44,28 @@ public enum UsageKey {
 
 /// Aggregations over the event list, computed on read (spec §5).
 public struct UsageStats: Sendable {
-    private let byKey: [String: [SkillUsageEvent]]
     public let window: UsageWindow
-    private let cutoff: Date?
+    /// Computed once at init — the key set is small, so every `summary(forKey:)`
+    /// call is a plain dictionary lookup rather than re-aggregating events.
+    private let summaries: [String: UsageSummary]
 
     public init(events: [SkillUsageEvent], window: UsageWindow, now: Date = Date()) {
-        byKey = Dictionary(grouping: events, by: \.skillName)
         self.window = window
-        cutoff = window.cutoff(now: now)
+        let cutoff = window.cutoff(now: now)
+        let byKey = Dictionary(grouping: events, by: \.skillName)
+        summaries = byKey.compactMapValues { events in
+            Self.summary(for: events, cutoff: cutoff)
+        }
     }
 
-    public var isEmpty: Bool { byKey.isEmpty }
+    public var isEmpty: Bool { summaries.isEmpty }
 
     public func summary(for skill: Skill) -> UsageSummary? { summary(forKey: UsageKey.key(for: skill)) }
 
-    public func summary(forKey key: String) -> UsageSummary? {
-        guard let events = byKey[key], let last = events.map(\.timestamp).max(),
+    public func summary(forKey key: String) -> UsageSummary? { summaries[key] }
+
+    private static func summary(for events: [SkillUsageEvent], cutoff: Date?) -> UsageSummary? {
+        guard let last = events.map(\.timestamp).max(),
               let first = events.map(\.timestamp).min() else { return nil }
         let inWindow = cutoff.map { c in events.filter { $0.timestamp >= c }.count } ?? events.count
         let projects = Dictionary(grouping: events, by: { $0.projectRoot?.path }).map { path, evs in
@@ -93,7 +99,7 @@ public enum UsageSort: String, CaseIterable, Sendable, Hashable {
             return c != .orderedSame ? c == .orderedAscending : $0.id < $1.id
         }
         if sort == .name { return entries.sorted(by: byName) }
-        let summaries = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, stats.summary(for: $0.skill)) })
+        let summaries = Dictionary(entries.map { ($0.id, stats.summary(for: $0.skill)) }, uniquingKeysWith: { first, _ in first })
         return entries.sorted { a, b in
             switch (summaries[a.id]!, summaries[b.id]!) {
             case (nil, nil): return byName(a, b)

@@ -57,6 +57,6 @@ public enum UsageScanner {
             lineStart = newline + 1
         }
         let newOffset = offset + consumed
-        store.cursors[key] = UsageFileCursor(byteOffset: newOffset, fileSize: newOffset == size ? size : newOffset)
+        store.cursors[key] = UsageFileCursor(byteOffset: newOffset, fileSize: size)
     }
 }
