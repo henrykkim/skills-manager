@@ -95,4 +95,12 @@ public enum LibraryScope: Sendable, Hashable {
         let shared = scope.containsSharedSkill() ? 0 : sharedSkills.count
         return plugins + skills + shared
     }
+
+    /// Rows available in a scope — plugins, skills, and built-in skills
+    /// (spec §5: the Showing menu's per-project trailing count).
+    public static func availableCount(in library: Library, scope: LibraryScope) -> Int {
+        let plugins = library.plugins.filter { scope.contains($0) }.count
+        let skills = (library.skills + library.builtIn).filter { scope.contains($0) }.count
+        return plugins + skills
+    }
 }

@@ -85,3 +85,16 @@ private let projects = [Project(root: a, displayName: "A"), Project(root: b, dis
     #expect(LibraryScope.hiddenCount(in: lib, sharedSkills: shared, scope: .project(root: a)) == 3)   // pb, cw, sh
     #expect(LibraryScope.hiddenCount(in: lib, sharedSkills: shared, scope: .everywhere) == 0)
 }
+
+@Test func availableCountSpansPluginsSkillsAndBuiltIn() {
+    var lib = Library()
+    lib.skills = [entry([skill("g", .personal)]), entry([skill("pb", .project(root: b, subpath: nil))])]
+    lib.builtIn = [entry([skill("bi", .account(userMade: false))])]
+    lib.plugins = [pentry([plugin("cw@m", .cowork)]), pentry([plugin("u@m", .user)])]
+    // Everywhere: everything is available — 2 skills + 1 built-in + 2 plugins.
+    #expect(LibraryScope.availableCount(in: lib, scope: .everywhere) == 5)
+    // Project a: g (personal), bi (account), u@m (user plugin) — not pb (other root) or cw (cowork plugin).
+    #expect(LibraryScope.availableCount(in: lib, scope: .project(root: a)) == 3)
+    // Cowork: bi (account) and cw@m — not the personal/project skills or the user plugin.
+    #expect(LibraryScope.availableCount(in: lib, scope: .cowork) == 2)
+}
