@@ -120,6 +120,10 @@ final class InventoryStore {
     /// After each load: a persisted or current project scope that the inventory
     /// no longer knows falls back to Everywhere, silently (spec §6).
     private func validateScope(against projects: [Project]) {
+        // Deliberately does not rewrite UserDefaults when falling back (e.g. a
+        // scoped project is momentarily missing from `projects`): keeping the
+        // originally requested key lets the scope restore itself if that
+        // project reappears in a later scan.
         let wanted = defaults.string(forKey: Self.scopeKey) ?? scope.persistenceKey
         let resolved = LibraryScope.from(persistenceKey: wanted, projects: projects)
         if resolved != scope {

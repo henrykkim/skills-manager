@@ -37,6 +37,7 @@ struct SkillDetailView: View {
                     UsageSection(skill: skill, summary: usage.stats.summary(for: skill), window: usage.window,
                                  isAccountSkill: { if case .account = skill.source { return true }; return false }(),
                                  projectNames: projectNames,
+                                 byProject: usage.allStats.summary(for: skill)?.byProject ?? [],
                                  scopeName: store.scope == .everywhere ? nil : store.scope.label(projects: store.inventory.projects))
                 }
 

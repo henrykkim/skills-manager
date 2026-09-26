@@ -34,6 +34,28 @@ struct LibraryView: View {
         } detail: {
             detailView
         }
+        .onChange(of: store.scope) { _, _ in
+            guard let selection else { return }
+            switch selection {
+            case .entry(let id):
+                if let entry = (library.skills + library.builtIn).first(where: { $0.id == id }),
+                   !store.scope.contains(entry) {
+                    self.selection = nil
+                }
+            case .plugin(let id):
+                if let entry = library.plugins.first(where: { $0.id == id }),
+                   !store.scope.contains(entry) {
+                    self.selection = nil
+                }
+            case .skill(let id):
+                if let parent = library.plugins.first(where: { $0.plugin.skills.contains { $0.id == id } }),
+                   !store.scope.contains(parent) {
+                    self.selection = nil
+                }
+            case .note, .needsAttention:
+                break
+            }
+        }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills, commands, and projects")
         .navigationTitle("Skills Manager")
         .toolbar {
