@@ -30,3 +30,31 @@ struct CheckForUpdatesView: View {
             .disabled(!model.canCheckForUpdates)
     }
 }
+
+/// Mirrors SPUUpdater.automaticallyDownloadsUpdates for the Settings switch.
+/// Sparkle persists the value itself (user defaults), so this is a thin bridge.
+@MainActor
+final class UpdaterSettingsModel: ObservableObject {
+    @Published var automaticallyDownloadsUpdates: Bool {
+        didSet {
+            guard updater.automaticallyDownloadsUpdates != automaticallyDownloadsUpdates else { return }
+            updater.automaticallyDownloadsUpdates = automaticallyDownloadsUpdates
+        }
+    }
+    @Published var canCheckForUpdates = false
+    private let updater: SPUUpdater
+
+    init(updater: SPUUpdater) {
+        self.updater = updater
+        automaticallyDownloadsUpdates = updater.automaticallyDownloadsUpdates
+        // The Sparkle update window has the same checkbox; keep the switch in step.
+        updater.publisher(for: \.automaticallyDownloadsUpdates)
+            .receive(on: RunLoop.main)
+            .assign(to: &$automaticallyDownloadsUpdates)
+        updater.publisher(for: \.canCheckForUpdates)
+            .receive(on: RunLoop.main)
+            .assign(to: &$canCheckForUpdates)
+    }
+
+    func checkNow() { updater.checkForUpdates() }
+}

@@ -1,14 +1,35 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
-/// Settings › Usage: the switch that turns skill-usage tracking on and off,
-/// what it reads, and the file it collects into.
+/// Settings › Updates and Usage. Updates: whether Sparkle installs new versions
+/// on its own (off by default; ask-first otherwise). Usage: the switch that
+/// turns skill-usage tracking on and off, what it reads, and the file it
+/// collects into.
 struct SettingsView: View {
     @Environment(UsageStore.self) private var usage
+    @ObservedObject private var updates: UpdaterSettingsModel
+
+    init(updater: SPUUpdater) {
+        updates = UpdaterSettingsModel(updater: updater)
+    }
 
     var body: some View {
         @Bindable var usage = usage
         Form {
+            Section("Updates") {
+                Toggle("Download and install updates automatically", isOn: $updates.automaticallyDownloadsUpdates)
+                Text("When this is off, Skills Manager tells you about new versions and asks before installing.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button("Check Now") { updates.checkNow() }
+                        .disabled(!updates.canCheckForUpdates)
+                }
+            }
+
             Section("Usage") {
                 Toggle("Show when and how often skills are used", isOn: $usage.isEnabled)
                 Text("Reads skill invocation records from Claude Code and Cowork session logs. Message text is never read or stored. Turning this off deletes the usage data Skills Manager has collected.")

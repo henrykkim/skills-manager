@@ -59,7 +59,7 @@ targets:
         SUPublicEDKey: "$(SPARKLE_PUBLIC_KEY)"
         SUEnableAutomaticChecks: "$(SU_AUTOMATIC_CHECKS)"
         SUAutomaticallyUpdate: false
-        SUAllowsAutomaticUpdates: false
+        SUAllowsAutomaticUpdates: true
 schemes:
   SkillsManager:
     build:
