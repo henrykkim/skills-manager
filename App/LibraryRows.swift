@@ -42,7 +42,7 @@ struct SkillEntryRow: View {
                 }
             }
             HStack(spacing: Spacing.sm) {
-                LocationTags(tags: entry.tags)
+                LocationTags(tags: entry.tags).layoutPriority(1)
                 if entry.copiesDiffer {
                     Text("Copies differ")
                         .font(.caption2)
@@ -57,7 +57,6 @@ struct SkillEntryRow: View {
                         .font(.metadata)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
-                        .fixedSize()
                         .help(usage.map {
                             "Last used \($0.lastUsed.formatted(date: .abbreviated, time: .shortened)) · \($0.countInWindow) times in the selected period"
                         } ?? "Not used yet")

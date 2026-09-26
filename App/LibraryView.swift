@@ -141,7 +141,9 @@ struct LibraryView: View {
                 Section("Skills") {
                     ForEach(filteredSkills) { entry in
                         if usageDividerID == entry.id {
-                            Divider().listRowSeparator(.hidden)
+                            Divider()
+                                .listRowSeparator(.hidden)
+                                .selectionDisabled()
                         }
                         SkillEntryRow(entry: entry, showsUsageHint: usage.isEnabled,
                                      usage: usage.isEnabled ? usage.stats.summary(for: entry.skill) : nil)
