@@ -30,7 +30,8 @@ struct LibraryView: View {
     var body: some View {
         NavigationSplitView {
             sidebar
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300)
+                .navigationSplitViewColumnWidth(min: 340, ideal: 360)
+                .toolbar(removing: .sidebarToggle)
         } detail: {
             detailView
         }
@@ -271,55 +272,87 @@ struct LibraryView: View {
             Text(addFolderMessage ?? "")
         }
         .onReceive(NotificationCenter.default.publisher(for: .showAddFolder)) { _ in pickFolder() }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
-                HStack(spacing: Spacing.sm) {
-                    Text("Showing").font(.caption).foregroundStyle(.secondary)
-                    Menu {
-                        Picker("Scope", selection: Binding(get: { store.scope }, set: { store.setScope($0) })) {
-                            Text("Everywhere").tag(LibraryScope.everywhere)
-                            ForEach(store.inventory.projects.sorted {
-                                $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
-                            }) { project in
-                                Text(project.displayName).tag(LibraryScope.project(root: project.root))
-                            }
-                            Text("Cowork").tag(LibraryScope.cowork)
-                        }
-                        .pickerStyle(.inline)
-                    } label: {
-                        Text(store.scope.label(projects: store.inventory.projects))
-                    }
-                    .accessibilityLabel("Showing")
-                    if usage.isEnabled {
-                        Text("Sorted by").font(.caption).foregroundStyle(.secondary)
-                        Menu {
-                            Picker("Sort order", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
-                                ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
-                            }
-                            .pickerStyle(.inline)
-                        } label: {
-                            Text(usage.sort.label)
-                        }
-                        .accessibilityLabel("Sort order")
-                        Menu {
-                            Picker("Count period", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
-                                ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
-                            }
-                            .pickerStyle(.inline)
-                        } label: {
-                            Text(usage.window.label)
-                        }
-                        .accessibilityLabel("Count period")
-                    }
-                    Spacer()
-                }
-                .menuStyle(.button)
-                .controlSize(.small)
-                .padding(.horizontal, Spacing.md)
-                .padding(.bottom, Spacing.sm)  // the search field already carries its own inset above
+        .toolbar {
+            ToolbarItem(placement: .navigation) { Spacer() }
+            ToolbarItem(placement: .principal) { titleMenu }
+            ToolbarItem { Spacer() }
+            ToolbarItem { sortMenu }
+        }
+    }
+
+    /// The Mail-style title control: a two-line menu label (scope name +
+    /// subtitle) that also picks the scope. Sorted projects each show their
+    /// own available count so switching scope previews what you'll see.
+    private var titleMenu: some View {
+        Menu {
+            Picker("Scope", selection: Binding(get: { store.scope }, set: { store.setScope($0) })) {
+                Text("Everywhere").tag(LibraryScope.everywhere)
                 Divider()
+                Section("Projects") {
+                    ForEach(sortedProjects) { project in
+                        Text("\(project.displayName)  \(LibraryScope.availableCount(in: library, scope: .project(root: project.root)))")
+                            .tag(LibraryScope.project(root: project.root))
+                    }
+                }
+                Divider()
+                Text("Cowork  \(LibraryScope.availableCount(in: library, scope: .cowork))").tag(LibraryScope.cowork)
             }
-            .background(.bar)
+            .pickerStyle(.inline)
+        } label: {
+            VStack(alignment: .center, spacing: 1) {
+                HStack(spacing: Spacing.xs) {
+                    Text(store.scope.label(projects: store.inventory.projects)).font(.headline)
+                    Image(systemName: "chevron.down").font(.caption2)
+                }
+                Text(titleSubtitle).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .help("Choose which project's skills to show")
+        .accessibilityLabel("Showing")
+    }
+
+    private var sortedProjects: [Project] {
+        store.inventory.projects.sorted {
+            $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+        }
+    }
+
+    private var titleSubtitle: String {
+        switch store.scope {
+        case .everywhere:
+            let skillCount = library.skills.count + library.builtIn.count
+            let pluginCount = library.plugins.count
+            let projectCount = store.inventory.projects.count
+            return "\(skillCount) skills · \(pluginCount) plugins · \(projectCount) projects"
+        case .project, .cowork:
+            let available = LibraryScope.availableCount(in: library, scope: store.scope)
+            let base = "\(available) available"
+            guard usage.isEnabled else { return base }
+            return "\(base) · sorted by \(usage.sort.label.lowercased())"
+        }
+    }
+
+    /// The sidebar toolbar's trailing sort control, icon-only so it reads as
+    /// chrome rather than competing with the title. Hidden until usage
+    /// tracking has something to sort by.
+    @ViewBuilder
+    private var sortMenu: some View {
+        if usage.isEnabled {
+            Menu {
+                Picker("Sort order", selection: Binding(get: { usage.sort }, set: { usage.sort = $0 })) {
+                    ForEach(UsageSort.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.inline)
+                Picker("Count period", selection: Binding(get: { usage.window }, set: { usage.window = $0 })) {
+                    ForEach(UsageWindow.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Label("Sort", systemImage: "line.3.horizontal.decrease")
+            }
+            .labelStyle(.iconOnly)
         }
     }
 
