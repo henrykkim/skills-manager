@@ -1,8 +1,8 @@
 # Homebrew cask for Skills Manager. Lives in the henrykkim/homebrew-tap repo as
 # Casks/skills-manager.rb; copy it there and bump version + sha256 per release.
 cask "skills-manager" do
-  version "0.3.0"
-  sha256 "0caac0c2f2bda2128432468117cdf8799a42dee2c9a1632d0ce25e6cd69b852c"
+  version "0.4.0"
+  sha256 "a402c4565af1e92de141c0033a801ba6aefc43e8fdbcccdd1158f9819d822f7e"
 
   url "https://github.com/henrykkim/skills-manager/releases/download/v#{version}/SkillsManager-#{version}.dmg"
   name "Skills Manager"
