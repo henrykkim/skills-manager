@@ -278,14 +278,17 @@ struct LibraryView: View {
     /// The Mail-style sidebar toolbar's content. `titleMenu` opts out of the
     /// system's per-item capsule background on macOS 26+ so it reads as a
     /// flat title, matching the owner-approved design; `sortMenu` keeps its
-    /// capsule, matching Mail's own utility buttons.
+    /// capsule, matching Mail's own utility buttons. The flanking spacers
+    /// must stay `ToolbarItem { Spacer() }`: `ToolbarSpacer(.flexible)`
+    /// collapses the neighbouring menu labels to icon-only on macOS 26+,
+    /// which hid the title text entirely.
     @ToolbarContentBuilder
     private var sidebarToolbarContent: some ToolbarContent {
         if #available(macOS 26, *) {
-            ToolbarSpacer(.flexible, placement: .navigation)
+            ToolbarItem(placement: .navigation) { Spacer() }
             ToolbarItem(placement: .principal) { titleMenu }
                 .sharedBackgroundVisibility(.hidden)
-            ToolbarSpacer(.flexible)
+            ToolbarItem { Spacer() }
         } else {
             ToolbarItem(placement: .navigation) { Spacer() }
             ToolbarItem(placement: .principal) { titleMenu }
