@@ -22,6 +22,8 @@ struct LibraryView: View {
     @State private var addFolderMessage: String?
     @State private var showInstall = false
     @State private var dismissedAccessNote = false
+    @State private var showRecommendations = false
+    @State private var recommendationsModel: RecommendationsModel?
     @State private var installModel = InstallSheetModel(
         paths: ClaudePaths(), github: URLSessionGitHubClient(),
         guesser: FoundationModelsGuesser.isAvailable ? FoundationModelsGuesser() : NoopGuesser(),
@@ -75,9 +77,12 @@ struct LibraryView: View {
                 ProjectAccessSheet(
                     onContinue: { store.acknowledgeProjectAccess() },
                     onLater: { dismissedAccessNote = true })
+            case .recommendations:
+                RecommendationsSheet(model: recommendationsModelInstance) { closeRecommendations() }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showInstallSheet)) { _ in showInstall = true }
+        .onReceive(NotificationCenter.default.publisher(for: .showRecommendations)) { _ in showRecommendations = true }
         .onDrop(of: [.url, .plainText], isTargeted: nil) { providers in
             guard let provider = providers.first else { return false }
             if provider.canLoadObject(ofClass: NSURL.self) {
@@ -96,23 +101,41 @@ struct LibraryView: View {
     }
 
     private enum ActiveSheet: Identifiable {
-        case install, projectAccess
+        case install, projectAccess, recommendations
         var id: Self { self }
     }
 
-    /// Install wins while it's open; the first-run note shows until Continue
-    /// or Not Now (Not Now lasts for this launch).
+    /// Install wins while it's open; then the first-run access note; then
+    /// the Recommended sheet (first launch, or File → Recommended…).
     private var activeSheet: Binding<ActiveSheet?> {
         Binding(
             get: {
                 if showInstall { return .install }
                 if store.needsProjectAccessNote && !dismissedAccessNote { return .projectAccess }
+                if showRecommendations || store.needsRecommendations { return .recommendations }
                 return nil
             },
             set: { newValue in
                 guard newValue == nil else { return }
-                if showInstall { showInstall = false } else { dismissedAccessNote = true }
+                if showInstall { showInstall = false }
+                else if store.needsProjectAccessNote && !dismissedAccessNote { dismissedAccessNote = true }
+                else { closeRecommendations() }
             })
+    }
+
+    private func closeRecommendations() {
+        showRecommendations = false
+        store.dismissRecommendations()
+    }
+
+    private var recommendationsModelInstance: RecommendationsModel {
+        if let recommendationsModel { return recommendationsModel }
+        let m = RecommendationsModel(catalog: store.recommendations, paths: ClaudePaths(),
+                                     github: URLSessionGitHubClient(), runner: ShellCommandRunner())
+        // Assigning @State inside a computed getter is allowed in SwiftUI; the
+        // next render reads the stored instance.
+        DispatchQueue.main.async { recommendationsModel = m }
+        return m
     }
 
     private var sidebar: some View {
@@ -593,5 +616,6 @@ struct LibraryView: View {
 
 extension Notification.Name {
     static let showInstallSheet = Notification.Name("SkillsManager.showInstallSheet")
+    static let showRecommendations = Notification.Name("SkillsManager.showRecommendations")
     static let showAddFolder = Notification.Name("SkillsManager.showAddFolder")
 }

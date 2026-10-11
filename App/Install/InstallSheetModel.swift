@@ -94,7 +94,7 @@ final class InstallSheetModel {
         }
     }
 
-    static func sentence(for error: InstallError) -> String {
+    nonisolated static func sentence(for error: InstallError) -> String {
         switch error {
         case .repoNotFound: "That GitHub repository doesn't exist or is private. Check the link and try again."
         case .noSkills: "That repository doesn't contain any skills (no SKILL.md files)."

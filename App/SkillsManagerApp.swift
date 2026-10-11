@@ -32,6 +32,10 @@ struct SkillsManagerApp: App {
                     .keyboardShortcut("n")
                 Button("Add Folder…") { NotificationCenter.default.post(name: .showAddFolder, object: nil) }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
+                if !store.recommendations.isEmpty {
+                    Divider()
+                    Button("Recommended…") { NotificationCenter.default.post(name: .showRecommendations, object: nil) }
+                }
             }
             CommandGroup(after: .toolbar) {
                 Button("Refresh") { store.reload() }
