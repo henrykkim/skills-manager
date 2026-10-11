@@ -24,6 +24,7 @@ final class RecommendationsModel {
     private(set) var missingTool: String?
     private(set) var isInstalling = false
     private(set) var finished = false
+    private(set) var isResolving = false
 
     private let resolver: InstallResolver
     private let installer: Installer
@@ -40,14 +41,16 @@ final class RecommendationsModel {
 
     // MARK: resolution
 
-    /// Resolves every item concurrently. Safe to call again: a newer call
-    /// wins, exactly like `InstallSheetModel`'s generation counter.
+    /// Re-resolves every item and clears the selection on every call; the view
+    /// must call it once per showing. A newer call wins, exactly like
+    /// `InstallSheetModel`'s generation counter.
     func start() {
         resolution?.cancel()
         generation += 1
         let gen = generation
         finished = false
         isInstalling = false
+        isResolving = true
         selected = []
         missingTool = nil
         for item in catalog.items { states[item.id] = .checking }
@@ -64,7 +67,7 @@ final class RecommendationsModel {
                         } catch let error as InstallError {
                             return (item.id, .unavailable(InstallSheetModel.sentence(for: error)))
                         } catch {
-                            return (item.id, .unavailable("Couldn't reach GitHub. Check your connection."))
+                            return (item.id, .unavailable(InstallSheetModel.sentence(for: .network(error.localizedDescription))))
                         }
                     }
                 }
@@ -76,6 +79,8 @@ final class RecommendationsModel {
             }
             guard gen == self.generation else { return }
             await self.checkTools(generation: gen)
+            guard gen == self.generation else { return }
+            self.isResolving = false
         }
     }
 
@@ -104,7 +109,7 @@ final class RecommendationsModel {
     }
 
     var canInstall: Bool {
-        !isInstalling && !finished && missingTool == nil
+        !isResolving && !isInstalling && !finished && missingTool == nil
             && !RecommendationPlan.make(items: catalog.items, previews: readyPreviews, selected: selected).isEmpty
     }
 
@@ -131,16 +136,20 @@ final class RecommendationsModel {
     func install() async {
         guard canInstall else { return }
         let steps = RecommendationPlan.make(items: catalog.items, previews: readyPreviews, selected: selected)
+        let gen = generation
         isInstalling = true
         for step in steps {
             states[step.itemID] = .installing
-            switch await installer.install(step.preview, selectedFolders: step.folders) {
+            let outcome = await installer.install(step.preview, selectedFolders: step.folders)
+            guard gen == generation else { return }
+            switch outcome {
             case .success:
                 states[step.itemID] = .done
             case .failure(let message, let log):
                 states[step.itemID] = .failed(message: message, log: log)
             }
         }
+        guard gen == generation else { return }
         isInstalling = false
         finished = true
     }
@@ -152,6 +161,7 @@ final class RecommendationsModel {
         selected = []
         missingTool = nil
         isInstalling = false
+        isResolving = false
         finished = false
     }
 }
