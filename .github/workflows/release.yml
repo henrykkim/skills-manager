@@ -50,34 +50,42 @@ jobs:
           # CURRENT_PROJECT_VERSION comes from GITHUB_RUN_NUMBER and Sparkle compares
           # it to decide what's newer; renaming/recreating this workflow resets the
           # counter and would stop updates reaching existing installs.
-          xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
-            -configuration Release -derivedDataPath build \
-            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" ENABLE_HARDENED_RUNTIME=YES \
-            SU_AUTOMATIC_CHECKS=YES \
-            CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="$TEAM_ID" \
-            OTHER_CODE_SIGN_FLAGS="--timestamp" build
+          for SCHEME in SkillsManager SkillsManagerHomeDepot; do
+            xcodebuild -project SkillsManager.xcodeproj -scheme "$SCHEME" \
+              -configuration Release -derivedDataPath build \
+              MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" ENABLE_HARDENED_RUNTIME=YES \
+              SU_AUTOMATIC_CHECKS=YES \
+              CODE_SIGN_IDENTITY="Developer ID Application" DEVELOPMENT_TEAM="$TEAM_ID" \
+              OTHER_CODE_SIGN_FLAGS="--timestamp" build
+          done
           codesign --verify --deep --strict --verbose=2 "build/Build/Products/Release/Skills Manager.app"
+          codesign --verify --deep --strict --verbose=2 "build/Build/Products/Release/Skills Manager for Home Depot.app"
           scripts/check-update-settings.sh "build/Build/Products/Release/Skills Manager.app" YES
+          scripts/check-update-settings.sh "build/Build/Products/Release/Skills Manager for Home Depot.app" YES \
+            "https://github.com/henrykkim/skills-manager/releases/latest/download/appcast-homedepot.xml"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Re-sign Sparkle for notarization
         run: |
-          APP="build/Build/Products/Release/Skills Manager.app"
-          FW="$APP/Contents/Frameworks/Sparkle.framework"
           ID="Developer ID Application"
           SIGN=(codesign -f -s "$ID" -o runtime --timestamp)
-          "${SIGN[@]}" "$FW/Versions/B/XPCServices/Installer.xpc"
-          "${SIGN[@]}" --preserve-metadata=entitlements "$FW/Versions/B/XPCServices/Downloader.xpc"
-          "${SIGN[@]}" "$FW/Versions/B/Autoupdate"
-          "${SIGN[@]}" "$FW/Versions/B/Updater.app"
-          "${SIGN[@]}" "$FW"
-          "${SIGN[@]}" --preserve-metadata=entitlements "$APP"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          # Notarization requires the hardened runtime on the app itself.
-          codesign -dv "$APP" 2>&1 | grep -q "flags=.*runtime" || { echo "::error::app is missing the hardened runtime"; exit 1; }
+          for APP in "build/Build/Products/Release/Skills Manager.app" "build/Build/Products/Release/Skills Manager for Home Depot.app"; do
+            FW="$APP/Contents/Frameworks/Sparkle.framework"
+            "${SIGN[@]}" "$FW/Versions/B/XPCServices/Installer.xpc"
+            "${SIGN[@]}" --preserve-metadata=entitlements "$FW/Versions/B/XPCServices/Downloader.xpc"
+            "${SIGN[@]}" "$FW/Versions/B/Autoupdate"
+            "${SIGN[@]}" "$FW/Versions/B/Updater.app"
+            "${SIGN[@]}" "$FW"
+            "${SIGN[@]}" --preserve-metadata=entitlements "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            # Notarization requires the hardened runtime on the app itself.
+            codesign -dv "$APP" 2>&1 | grep -q "flags=.*runtime" || { echo "::error::$APP is missing the hardened runtime"; exit 1; }
+          done
 
       - name: Package DMG
-        run: scripts/make-dmg.sh "build/Build/Products/Release/Skills Manager.app" "SkillsManager-$VERSION.dmg"
+        run: |
+          scripts/make-dmg.sh "build/Build/Products/Release/Skills Manager.app" "SkillsManager-$VERSION.dmg"
+          scripts/make-dmg.sh "build/Build/Products/Release/Skills Manager for Home Depot.app" "SkillsManagerHomeDepot-$VERSION.dmg" "Skills Manager for Home Depot"
 
       - name: Notarize and staple
         env:
@@ -87,18 +95,20 @@ jobs:
         run: |
           echo "$KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
           AUTH=(--key "$RUNNER_TEMP/AuthKey.p8" --key-id "$KEY_ID" --issuer "$ISSUER_ID")
-          xcrun notarytool submit "SkillsManager-$VERSION.dmg" "${AUTH[@]}" --wait --output-format json > notary.json || true
-          cat notary.json
-          ID=$(python3 -c 'import json;print(json.load(open("notary.json"))["id"])')
-          STATUS=$(python3 -c 'import json;print(json.load(open("notary.json"))["status"])')
-          if [ "$STATUS" != "Accepted" ]; then
-            echo "::group::Apple notarization log"
-            xcrun notarytool log "$ID" "${AUTH[@]}"
-            echo "::endgroup::"
-            rm "$RUNNER_TEMP/AuthKey.p8"
-            exit 1
-          fi
-          xcrun stapler staple "SkillsManager-$VERSION.dmg"
+          for DMG in "SkillsManager-$VERSION.dmg" "SkillsManagerHomeDepot-$VERSION.dmg"; do
+            xcrun notarytool submit "$DMG" "${AUTH[@]}" --wait --output-format json > notary.json || true
+            cat notary.json
+            ID=$(python3 -c 'import json;print(json.load(open("notary.json"))["id"])')
+            STATUS=$(python3 -c 'import json;print(json.load(open("notary.json"))["status"])')
+            if [ "$STATUS" != "Accepted" ]; then
+              echo "::group::Apple notarization log ($DMG)"
+              xcrun notarytool log "$ID" "${AUTH[@]}"
+              echo "::endgroup::"
+              rm "$RUNNER_TEMP/AuthKey.p8"
+              exit 1
+            fi
+            xcrun stapler staple "$DMG"
+          done
           rm "$RUNNER_TEMP/AuthKey.p8"
 
       - name: Sign update and write appcast
@@ -107,20 +117,29 @@ jobs:
         run: |
           SIGN_UPDATE="build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
           [ -x "$SIGN_UPDATE" ] || { echo "::error::sign_update not found in the SwiftPM Sparkle artifact"; exit 1; }
-          DMG="SkillsManager-$VERSION.dmg"
-          SIGN_OUT=$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" --ed-key-file - "$DMG")
-          scripts/make-appcast.sh --version "$VERSION" --build "$GITHUB_RUN_NUMBER" \
-            --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/$DMG" \
-            --sign-output "$SIGN_OUT" --notes "release-notes/$VERSION.md" --out appcast.xml
-          xmllint --noout appcast.xml
-          PUB=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "build/Build/Products/Release/Skills Manager.app/Contents/Info.plist")
-          SIG=$(sed -nE 's/.*sparkle:edSignature="([^"]+)".*/\1/p' <<< "$SIGN_OUT")
-          swift scripts/verify-update-signature.swift "$DMG" "$SIG" "$PUB"
+          sign_one() {   # <dmg> <appcast out> <channel title> <app path>
+            local DMG="$1" OUT="$2" TITLE="$3" APP="$4"
+            local SIGN_OUT
+            SIGN_OUT=$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" --ed-key-file - "$DMG")
+            scripts/make-appcast.sh --version "$VERSION" --build "$GITHUB_RUN_NUMBER" --title "$TITLE" \
+              --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/$DMG" \
+              --sign-output "$SIGN_OUT" --notes "release-notes/$VERSION.md" --out "$OUT"
+            xmllint --noout "$OUT"
+            local PUB SIG
+            PUB=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$APP/Contents/Info.plist")
+            SIG=$(sed -nE 's/.*sparkle:edSignature="([^"]+)".*/\1/p' <<< "$SIGN_OUT")
+            swift scripts/verify-update-signature.swift "$DMG" "$SIG" "$PUB"
+          }
+          sign_one "SkillsManager-$VERSION.dmg" appcast.xml "Skills Manager" "build/Build/Products/Release/Skills Manager.app"
+          sign_one "SkillsManagerHomeDepot-$VERSION.dmg" appcast-homedepot.xml "Skills Manager for Home Depot" "build/Build/Products/Release/Skills Manager for Home Depot.app"
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           shasum -a 256 "SkillsManager-$VERSION.dmg" > "SkillsManager-$VERSION.dmg.sha256"
-          gh release create "$GITHUB_REF_NAME" "SkillsManager-$VERSION.dmg" "SkillsManager-$VERSION.dmg.sha256" appcast.xml \
+          shasum -a 256 "SkillsManagerHomeDepot-$VERSION.dmg" > "SkillsManagerHomeDepot-$VERSION.dmg.sha256"
+          gh release create "$GITHUB_REF_NAME" \
+            "SkillsManager-$VERSION.dmg" "SkillsManager-$VERSION.dmg.sha256" appcast.xml \
+            "SkillsManagerHomeDepot-$VERSION.dmg" "SkillsManagerHomeDepot-$VERSION.dmg.sha256" appcast-homedepot.xml \
             --title "Skills Manager $VERSION" --generate-notes
