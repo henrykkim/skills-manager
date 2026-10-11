@@ -45,6 +45,8 @@ final class RecommendationsModel {
     /// must call it once per showing. A newer call wins, exactly like
     /// `InstallSheetModel`'s generation counter.
     func start() {
+        // A re-presented sheet must not abandon a running install.
+        guard !isInstalling else { return }
         resolution?.cancel()
         generation += 1
         let gen = generation

@@ -123,11 +123,12 @@ struct RecommendationsSheet: View {
         HStack {
             Spacer()
             if model.finished {
-                Button("Done") { model.reset(); onDone() }.keyboardShortcut(.defaultAction)
+                Button("Done") { onDone() }.keyboardShortcut(.defaultAction)
             } else if model.isInstalling {
-                Button("Cancel") {}.disabled(true).accessibilityHint("Installing — please wait")
+                HStack(spacing: Spacing.xs) { ProgressView().controlSize(.small); Text("Installing…") }
+                    .foregroundStyle(.secondary)
             } else {
-                Button("Not Now") { model.reset(); onDone() }.keyboardShortcut(.cancelAction)
+                Button("Not Now") { onDone() }.keyboardShortcut(.cancelAction)
                 Button("Install Selected") { Task { await model.install() } }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!model.canInstall)

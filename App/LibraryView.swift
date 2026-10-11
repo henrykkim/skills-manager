@@ -78,10 +78,18 @@ struct LibraryView: View {
                     onContinue: { store.acknowledgeProjectAccess() },
                     onLater: { dismissedAccessNote = true })
             case .recommendations:
-                RecommendationsSheet(model: recommendationsModelInstance) { closeRecommendations() }
+                if let recommendationsModel {
+                    RecommendationsSheet(model: recommendationsModel) { closeRecommendations() }
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showInstallSheet)) { _ in showInstall = true }
+        .onAppear {
+            if recommendationsModel == nil, !store.recommendations.isEmpty {
+                recommendationsModel = RecommendationsModel(catalog: store.recommendations, paths: ClaudePaths(),
+                                                            github: URLSessionGitHubClient(), runner: ShellCommandRunner())
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .showRecommendations)) { _ in showRecommendations = true }
         .onDrop(of: [.url, .plainText], isTargeted: nil) { providers in
             guard let provider = providers.first else { return false }
@@ -125,17 +133,8 @@ struct LibraryView: View {
 
     private func closeRecommendations() {
         showRecommendations = false
+        recommendationsModel?.reset()
         store.dismissRecommendations()
-    }
-
-    private var recommendationsModelInstance: RecommendationsModel {
-        if let recommendationsModel { return recommendationsModel }
-        let m = RecommendationsModel(catalog: store.recommendations, paths: ClaudePaths(),
-                                     github: URLSessionGitHubClient(), runner: ShellCommandRunner())
-        // Assigning @State inside a computed getter is allowed in SwiftUI; the
-        // next render reads the stored instance.
-        DispatchQueue.main.async { recommendationsModel = m }
-        return m
     }
 
     private var sidebar: some View {
