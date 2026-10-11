@@ -9,6 +9,10 @@ final class InventoryStore {
     private(set) var isLoading = false
     private(set) var addedFolders: [URL]
     private(set) var needsProjectAccessNote: Bool
+    /// Bundled `Recommendations.json` (spec §4). Empty in the general build.
+    let recommendations: RecommendationsCatalog
+    /// True until the Recommended sheet is dismissed once (spec §5).
+    private(set) var needsRecommendations: Bool
     private let paths = ClaudePaths()
     private let defaults = UserDefaults.standard
     private var watcher: FileWatcher?
@@ -25,11 +29,17 @@ final class InventoryStore {
     private static let addedFoldersKey = "addedFolders"
     private static let projectAccessKey = "projectAccessAcknowledged"
     private static let scopeKey = "libraryScope"
+    private static let recommendationsDismissedKey = "recommendationsDismissed"
 
     init() {
         addedFolders = (UserDefaults.standard.stringArray(forKey: Self.addedFoldersKey) ?? [])
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
         needsProjectAccessNote = !UserDefaults.standard.bool(forKey: Self.projectAccessKey)
+        let catalogData = Bundle.main.url(forResource: "Recommendations", withExtension: "json")
+            .flatMap { try? Data(contentsOf: $0) }
+        recommendations = RecommendationsCatalog.load(catalogData)
+        needsRecommendations = !recommendations.isEmpty
+            && !UserDefaults.standard.bool(forKey: Self.recommendationsDismissedKey)
     }
 
     /// Idempotent: first call loads and starts watching; later calls are no-ops.
@@ -85,6 +95,13 @@ final class InventoryStore {
         defaults.set(true, forKey: Self.projectAccessKey)
         needsProjectAccessNote = false
         reload()
+    }
+
+    /// Any dismissal (Not now, Done, closing the sheet) is permanent; the
+    /// sheet stays reachable from File → Recommended….
+    func dismissRecommendations() {
+        defaults.set(true, forKey: Self.recommendationsDismissedKey)
+        needsRecommendations = false
     }
 
     /// Adds a project or notes folder. Returns `.neither` (and adds nothing)
