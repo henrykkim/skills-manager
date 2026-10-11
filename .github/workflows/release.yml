@@ -139,7 +139,11 @@ jobs:
         run: |
           shasum -a 256 "SkillsManager-$VERSION.dmg" > "SkillsManager-$VERSION.dmg.sha256"
           shasum -a 256 "SkillsManagerHomeDepot-$VERSION.dmg" > "SkillsManagerHomeDepot-$VERSION.dmg.sha256"
+          # A tag with a suffix (v0.4.2-rc1) is a rehearsal: publish it as a
+          # pre-release so GitHub's "latest" (which both apps' feeds point at)
+          # keeps serving the last real release.
+          PRE=(); case "$VERSION" in *-*) PRE=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" \
             "SkillsManager-$VERSION.dmg" "SkillsManager-$VERSION.dmg.sha256" appcast.xml \
             "SkillsManagerHomeDepot-$VERSION.dmg" "SkillsManagerHomeDepot-$VERSION.dmg.sha256" appcast-homedepot.xml \
-            --title "Skills Manager $VERSION" --generate-notes
+            --title "Skills Manager $VERSION" --generate-notes "${PRE[@]}"
