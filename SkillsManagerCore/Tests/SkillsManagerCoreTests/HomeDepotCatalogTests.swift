@@ -14,7 +14,7 @@ private func repoCatalog(_ flavor: String) throws -> RecommendationsCatalog {
 
 @Test func homeDepotCatalogHasExactlyTheAgreedItems() throws {
     let c = try repoCatalog("HomeDepot")
-    #expect(c.title == "Recommended at Home Depot")
+    #expect(c.title == "Recommended to get you started")
     #expect(c.items.map(\.name) == ["Superpowers", "Agentation", "Emil's Skills", "Jakub's Skills"])
     #expect(c.items.map(\.source) == [
         "claude plugin install superpowers@claude-plugins-official",
@@ -23,6 +23,12 @@ private func repoCatalog(_ flavor: String) throws -> RecommendationsCatalog {
         "https://github.com/jakubkrehel/skills",
     ])
     #expect(c.items.allSatisfy { $0.blurb?.isEmpty == false })
+    #expect(c.items.map { $0.url?.absoluteString } == [
+        "https://github.com/obra/superpowers",
+        "https://github.com/benjitaylor/agentation",
+        "https://github.com/emilkowalski/skills",
+        "https://github.com/jakubkrehel/skills",
+    ])
 }
 
 @Test func homeDepotSourcesAllParse() throws {

@@ -350,6 +350,7 @@ struct LibraryView: View {
             }
         }
         .menuIndicator(.hidden)
+        .labelStyle(.titleAndIcon)
         .help("Choose which project's skills to show")
         .accessibilityLabel("Showing")
     }

@@ -62,7 +62,10 @@ struct RecommendationsSheet: View {
                 set: { on in if on { model.selected.insert(item.id) } else { model.selected.remove(item.id) } }
             )) {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(item.name).lineLimit(1).truncationMode(.tail)
+                    HStack(spacing: Spacing.sm) {
+                        Text(item.name).lineLimit(1).truncationMode(.tail)
+                        if let url = item.url { SourceLink(label: "GitHub", url: url).font(.caption) }
+                    }
                     if let blurb = item.blurb { Text(blurb).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                     status(state)
                 }
@@ -79,6 +82,9 @@ struct RecommendationsSheet: View {
                 .padding(.leading, Spacing.lg + Spacing.xs)
             }
         }
+        // Rows fill the list width; without this each row sizes to its own
+        // text and the centring parent VStack staggers them.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.sm)
         .contentShape(Rectangle())
     }

@@ -7,10 +7,12 @@ public struct RecommendationItem: Codable, Sendable, Equatable, Identifiable {
     public let name: String
     public let source: String
     public let blurb: String?
+    /// Where to read about it (usually the GitHub repository). Display-only.
+    public let url: URL?
     public var id: String { source }
 
-    public init(name: String, source: String, blurb: String?) {
-        self.name = name; self.source = source; self.blurb = blurb
+    public init(name: String, source: String, blurb: String?, url: URL? = nil) {
+        self.name = name; self.source = source; self.blurb = blurb; self.url = url
     }
 }
 

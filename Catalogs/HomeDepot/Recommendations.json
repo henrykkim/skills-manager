@@ -1,25 +1,29 @@
 {
-  "title": "Recommended at Home Depot",
-  "intro": "A starting set our team uses. Install any or all; you can add more later from File → Install.",
+  "title": "Recommended to get you started",
+  "intro": "A few plugins and skills worth installing first. Pick any or all; you can add more later from File → Install.",
   "items": [
     {
       "name": "Superpowers",
       "source": "claude plugin install superpowers@claude-plugins-official",
+      "url": "https://github.com/obra/superpowers",
       "blurb": "Workflow skills for Claude Code: brainstorming, planning, test-driven development, debugging."
     },
     {
       "name": "Agentation",
       "source": "https://github.com/benjitaylor/agentation",
+      "url": "https://github.com/benjitaylor/agentation",
       "blurb": "A visual feedback toolbar so you can annotate a page and hand the notes to Claude."
     },
     {
       "name": "Emil's Skills",
       "source": "https://github.com/emilkowalski/skills",
+      "url": "https://github.com/emilkowalski/skills",
       "blurb": "Design engineering and animation skills from Emil Kowalski."
     },
     {
       "name": "Jakub's Skills",
       "source": "https://github.com/jakubkrehel/skills",
+      "url": "https://github.com/jakubkrehel/skills",
       "blurb": "Accessibility, layout, typography, color and UI polish reviews from Jakub Krehel."
     }
   ]

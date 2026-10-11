@@ -55,3 +55,10 @@ private func data(_ s: String) -> Data { Data(s.utf8) }
     let json = #"{"items":[{"name":"A","source":"   "},{"name":"B","source":"o/s"}]}"#
     #expect(RecommendationsCatalog.load(data(json)).items.map(\.name) == ["B"])
 }
+
+@Test func decodesOptionalURL() {
+    let json = #"{"items":[{"name":"A","source":"o/r","url":"https://github.com/o/r"},{"name":"B","source":"o/s"}]}"#
+    let c = RecommendationsCatalog.load(data(json))
+    #expect(c.items[0].url == URL(string: "https://github.com/o/r"))
+    #expect(c.items[1].url == nil)
+}
