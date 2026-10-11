@@ -40,7 +40,10 @@ targets:
   SkillsManager:
     type: application
     platform: macOS
-    sources: [App]
+    sources:
+      - App
+      - path: Catalogs/General/Recommendations.json
+        buildPhase: resources
     dependencies:
       - package: SkillsManagerCore
       - package: Sparkle
@@ -60,10 +63,51 @@ targets:
         SUEnableAutomaticChecks: "$(SU_AUTOMATIC_CHECKS)"
         SUAutomaticallyUpdate: false
         SUAllowsAutomaticUpdates: true
+
+  # Same code, Home Depot catalog. Its own bundle ID and feed keep Sparkle
+  # from ever updating one flavor with the other (spec §6).
+  SkillsManagerHomeDepot:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - path: Catalogs/HomeDepot/Recommendations.json
+        buildPhase: resources
+    dependencies:
+      - package: SkillsManagerCore
+      - package: Sparkle
+      - sdk: FoundationModels.framework
+        weak: true
+    settings:
+      base:
+        PRODUCT_NAME: "Skills Manager for Home Depot"
+        PRODUCT_BUNDLE_IDENTIFIER: com.henrykkim.SkillsManagerHomeDepot
+        SU_FEED_URL: "https://github.com/henrykkim/skills-manager/releases/latest/download/appcast-homedepot.xml"
+    info:
+      path: App/Info-HomeDepot.plist
+      properties:
+        CFBundleDisplayName: "Skills Manager for Home Depot"
+        CFBundleIconFile: AppIcon
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSHumanReadableCopyright: ""
+        SUFeedURL: "$(SU_FEED_URL)"
+        SUPublicEDKey: "$(SPARKLE_PUBLIC_KEY)"
+        SUEnableAutomaticChecks: "$(SU_AUTOMATIC_CHECKS)"
+        SUAutomaticallyUpdate: false
+        SUAllowsAutomaticUpdates: true
+
 schemes:
   SkillsManager:
     build:
       targets:
         SkillsManager: all
+    run:
+      config: Debug
+  SkillsManagerHomeDepot:
+    build:
+      targets:
+        SkillsManagerHomeDepot: all
     run:
       config: Debug

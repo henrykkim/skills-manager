@@ -6,3 +6,4 @@ SkillsManager.xcodeproj/
 *.xcuserstate
 .claude/scheduled_tasks.lock
 App/Info.plist
+App/Info-HomeDepot.plist
