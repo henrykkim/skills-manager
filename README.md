@@ -21,7 +21,7 @@ brew install --cask henrykkim/tap/skills-manager
 
 ### Skills Manager for Home Depot
 
-The same app with a starter list of recommended plugins and skills shown on first launch (Superpowers, Agentation, Emil's Skills, Jakub's Skills). Download `SkillsManagerHomeDepot-<version>.dmg` from the latest release, or `brew install henrykkim/tap/skills-manager-home-depot`. It updates on the same schedule as the general app.
+The same app with a starter list of recommended plugins and skills shown on first launch (Superpowers, Agentation, Emil's Skills, Jakub's Skills). Download `SkillsManagerHomeDepot-<version>.dmg` from the latest release, or `brew install --cask henrykkim/tap/skills-manager-home-depot`. It updates on the same schedule as the general app.
 
 ## Build from source
 

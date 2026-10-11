@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import SkillsManagerCore
 
 @MainActor
@@ -38,6 +39,10 @@ final class InventoryStore {
         let catalogData = Bundle.main.url(forResource: "Recommendations", withExtension: "json")
             .flatMap { try? Data(contentsOf: $0) }
         recommendations = RecommendationsCatalog.load(catalogData)
+        if recommendations.isEmpty, let catalogData, !catalogData.isEmpty {
+            Logger(subsystem: Bundle.main.bundleIdentifier ?? "SkillsManager", category: "recommendations")
+                .error("Recommendations.json could not be decoded; treating the catalog as empty.")
+        }
         needsRecommendations = !recommendations.isEmpty
             && !UserDefaults.standard.bool(forKey: Self.recommendationsDismissedKey)
     }

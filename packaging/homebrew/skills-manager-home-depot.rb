@@ -2,7 +2,7 @@
 # henrykkim/homebrew-tap repo as Casks/skills-manager-home-depot.rb; copy it
 # there and bump version + sha256 per release (same version as skills-manager).
 cask "skills-manager-home-depot" do
-  version "0.5.0"
+  version "0.4.2"
   sha256 "REPLACE_WITH_SHA256_FROM_THE_RELEASE"
 
   url "https://github.com/henrykkim/skills-manager/releases/download/v#{version}/SkillsManagerHomeDepot-#{version}.dmg"

@@ -18,6 +18,7 @@ struct RecommendationsSheet: View {
         }
         .padding(Spacing.xl)
         .frame(width: 560)
+        .interactiveDismissDisabled(model.isInstalling)
         .onAppear { model.start() }
     }
 

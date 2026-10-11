@@ -132,6 +132,8 @@ struct LibraryView: View {
     }
 
     private func closeRecommendations() {
+        // A running install must finish; the sheet has no dismiss control then.
+        if recommendationsModel?.isInstalling == true { return }
         showRecommendations = false
         recommendationsModel?.reset()
         store.dismissRecommendations()
