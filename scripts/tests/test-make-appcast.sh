@@ -26,6 +26,12 @@ DESC="$(x 'string(//item/description)')"
 [[ "$DESC" == *"<li>See skills from every project you use with Claude.</li>"* ]] || fail "first bullet: $DESC"
 [[ "$DESC" == *"&amp; &quot;quotes&quot; &lt;stay&gt; safe"* ]] || fail "escaping: $DESC"
 [[ "$DESC" == *"<p>Thanks for using Skills Manager.</p>"* ]] || fail "paragraph: $DESC"
+[[ "$(x 'string(//channel/title)')" == "Skills Manager" ]] || fail "default channel title"
+scripts/make-appcast.sh --version 0.2.0 --build 42 --title "Skills Manager for Home Depot" \
+  --url "https://example.com/SkillsManagerHomeDepot-0.2.0.dmg" \
+  --sign-output 'sparkle:edSignature="QUJD" length="12345"' \
+  --notes "$T/notes.md" --out "$T/appcast-hd.xml"
+[[ "$(xmllint --xpath 'string(//channel/title)' "$T/appcast-hd.xml")" == "Skills Manager for Home Depot" ]] || fail "custom channel title"
 # Missing notes must fail.
 if scripts/make-appcast.sh --version 0.2.0 --build 1 --url u --sign-output 'sparkle:edSignature="A" length="1"' \
      --notes "$T/nope.md" --out "$T/x.xml" 2>/dev/null; then fail "missing notes accepted"; fi

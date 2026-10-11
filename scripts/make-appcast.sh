@@ -3,9 +3,10 @@
 # Used by .github/workflows/release.yml and the local rehearsal.
 set -euo pipefail
 zmodload zsh/zutil
-zparseopts -D -E -F -A opt -- -version: -build: -url: -sign-output: -notes: -out:
+zparseopts -D -E -F -A opt -- -version: -build: -url: -sign-output: -notes: -out: -title:
 VERSION="${opt[--version]}"; BUILD="${opt[--build]}"; URL="${opt[--url]}"
 SIGN="${opt[--sign-output]}"; NOTES="${opt[--notes]}"; OUT="${opt[--out]}"
+TITLE="${opt[--title]:-Skills Manager}"
 
 [[ -s "$NOTES" ]] || { echo "Release notes missing or empty: $NOTES" >&2; exit 1; }
 SIG="$(sed -nE 's/.*sparkle:edSignature="([^"]+)".*/\1/p' <<< "$SIGN")"
@@ -29,7 +30,7 @@ cat > "$OUT" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
-    <title>Skills Manager</title>
+    <title>$(esc "$TITLE")</title>
     <item>
       <title>Version $VERSION</title>
       <pubDate>$(LC_ALL=C date -u "+%a, %d %b %Y %H:%M:%S +0000")</pubDate>

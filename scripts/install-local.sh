@@ -4,7 +4,7 @@
 # delete stray Debug builds under the repo and its worktrees so Spotlight and
 # Launchpad only ever show one copy.
 #
-# Usage: scripts/install-local.sh            (run from anywhere in the repo)
+# Usage: scripts/install-local.sh [--home-depot]   (run from anywhere in the repo)
 #
 # Note: /Applications is also where the Homebrew cask (henrykkim/tap/skills-manager)
 # installs. Overwriting it here is fine; the next `brew upgrade` replaces it
@@ -13,7 +13,8 @@ set -euo pipefail
 setopt null_glob
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="Skills Manager"
+SCHEME="SkillsManager"; APP_NAME="Skills Manager"
+if [[ "${1:-}" == "--home-depot" ]]; then SCHEME="SkillsManagerHomeDepot"; APP_NAME="Skills Manager for Home Depot"; fi
 DEST="/Applications/$APP_NAME.app"
 DD="$(mktemp -d /tmp/skills-manager-dd.XXXXXX)"
 trap 'rm -rf "$DD"' EXIT
@@ -22,7 +23,7 @@ cd "$REPO"
 [[ -d SkillsManager.xcodeproj ]] || xcodegen generate >/dev/null
 
 echo "▸ Building Release from $(git rev-parse --short HEAD) ($(git branch --show-current))"
-xcodebuild -project SkillsManager.xcodeproj -scheme SkillsManager \
+xcodebuild -project SkillsManager.xcodeproj -scheme "$SCHEME" \
   -configuration Release -derivedDataPath "$DD" build 2>&1 \
   | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
 BUILT="$DD/Build/Products/Release/$APP_NAME.app"

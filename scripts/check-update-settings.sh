@@ -1,11 +1,11 @@
 #!/bin/zsh
 # Asserts a built Skills Manager.app carries the update settings from the
-# auto-updates spec. Usage: scripts/check-update-settings.sh <App.app> <YES|NO>
+# auto-updates spec. Usage: scripts/check-update-settings.sh <App.app> <YES|NO> [feed-url]
 # Set ALLOW_EMPTY_KEY=1 to accept an empty SUPublicEDKey (before key setup).
 set -euo pipefail
 APP="$1"; EXPECT_CHECKS="$2"
 PLIST="$APP/Contents/Info.plist"
-FEED="https://github.com/henrykkim/skills-manager/releases/latest/download/appcast.xml"
+FEED="${3:-https://github.com/henrykkim/skills-manager/releases/latest/download/appcast.xml}"
 pb() { /usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" 2>/dev/null || echo "<missing>"; }
 fail() { echo "✗ $1"; exit 1; }
 
