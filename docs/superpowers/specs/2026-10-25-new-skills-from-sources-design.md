@@ -87,7 +87,7 @@ skipped. A repo is a source even if only one skill from it is installed.
 2. Derive each skill's folder name exactly as `resolveRepo` does (parent
    folder of `SKILL.md`; the repo name when `SKILL.md` is at the root).
 3. A folder is **new** when it is not present locally **and** not in the
-   lock **and** not in the ignore list (§7).
+   lock. There is no ignore list (§7).
 4. For new folders only, download that `SKILL.md` and parse frontmatter for
    `name` and `description`. Skills already installed are never downloaded
    again; this keeps the per-day cost near one API request per repo.
@@ -146,7 +146,9 @@ merged on the main actor.
 
 - `sourceCheckLastCompleted: Date` — set only when a run finishes without a
   network or rate-limit abort.
-- `sourceCheckIgnoredSkills: [String]` — `"owner/repo#folder"` keys (§7).
+- `sourceCheckDismissedUntilNew: Bool` — set when the owner dismisses the
+  findings (§7); cleared when a check finds a skill not yet in
+  `sourceCheckNotifiedSkills`.
 - `sourceCheckLastFindings: Data` — the last findings, JSON-encoded, so the
   button and popover are correct immediately on launch, before the day's
   check runs or when offline.
@@ -169,9 +171,10 @@ is nothing new the toolbar is pixel-identical to today.
 - Clicking toggles the popover (§7). It is a `.popover` anchored to the
   button, not a sheet, so it never fights the install / recommendations /
   project-access sheet arbitration in `LibraryView`.
-- A matching menu item **View → What's New…** that is disabled when there is
-  nothing new, so the feature is discoverable from the menu bar and
-  reachable by keyboard.
+- **No new menu item.** The existing **View → Refresh** (⌘R) already runs
+  the check; the popover opens only from the toolbar button or from a
+  notification. Owner's decision: one more menu line next to Refresh would
+  be clutter.
 
 ## 7. The popover
 
@@ -183,17 +186,20 @@ Width about 380pt. Content, top to bottom:
   sorted by folder name.
 - One **row per new skill**: name (frontmatter `name`, else folder) in body
   weight, the description beneath in secondary colour, one line, truncated.
-  Trailing **Install** button (default style, filled). A tiny "Ignore"
-  affordance (an `xmark.circle` button shown on hover, or a context-menu
-  item; builder's call) adds the skill to the ignore list and removes the
-  row.
+  Trailing **Install** button (default style, filled). No per-row ignore.
 - When a repo has two or more new skills, a trailing **Install all** text
   button in its section header.
 - Footer in caption style: "Checked 2 hours ago" using the relative date
   formatter, or "Not checked yet". When the last run aborted on network or
   rate limit, the footer reads "Couldn't reach GitHub · checked 2 hours ago".
-- When the owner installs or ignores the last row, the popover closes and
-  the button disappears.
+- A **Dismiss** text button in the footer. Dismiss hides the button (and
+  closes the popover) until the next check finds a skill not seen before.
+  When that happens, the popover comes back showing **every** uninstalled
+  skill from the sources, including previously dismissed ones. Owner's
+  decision: they always want the full picture of what they have and have
+  not installed; nothing is permanently hidden.
+- When the owner installs the last row, the popover closes and the button
+  disappears.
 
 **Install behaviour:** clicking Install on a row runs
 `Installer.install` for a preview built for that repo with
@@ -214,8 +220,9 @@ install box.
 No confirmation step. The owner has already installed from this repo; that
 is the trust signal.
 
-**Dismissing the popover** does not clear findings. The button stays until
-every row is installed or ignored.
+**Closing the popover** (clicking away) does not clear findings; only
+**Dismiss** does, and only until something new appears. The button stays
+until every row is installed or the findings are dismissed.
 
 ## 8. Notification
 
@@ -244,7 +251,8 @@ No notification when the app is in the foreground **and** the library window
 is key; the button appearing is enough there. (Owner asked not to be too
 quiet; this still fires whenever the app is in the background or hidden.)
 
-Ignored skills are never announced.
+Dismissal never affects notifications: a skill is announced exactly once,
+the first time any check sees it.
 
 ## 9. Edge cases
 
@@ -272,12 +280,11 @@ Ignored skills are never announced.
 - Type and property names, file layout within Core and App.
 - Whether to use `git/trees/HEAD` or keep the two-call repo+tree sequence.
 - Timer implementation for the hourly day-rollover check.
-- How "Ignore" is exposed on a row (hover button vs. context menu).
 - Whether `.badge()` or a hand-drawn capsule renders the count, after
   checking both macOS versions.
 - Exact notification wording beyond the examples above.
 - Anything about tests beyond: `SourceCheck` is covered by unit tests with a
-  stub `GitHubClient`; the day-rollover rule and the ignore/notified sets are
+  stub `GitHubClient`; the day-rollover rule and the dismissed flag and notified set are
   covered by tests on the model with an injected clock and defaults.
 
 ## 11. Out of scope for this spec, noted for later
