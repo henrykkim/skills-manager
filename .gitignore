@@ -7,3 +7,4 @@ SkillsManager.xcodeproj/
 .claude/scheduled_tasks.lock
 App/Info.plist
 App/Info-HomeDepot.plist
+.superpowers/
