@@ -82,11 +82,12 @@ public struct SourceCheck: Sendable {
         let paths = try await github.treePaths(owner: source.owner, repo: source.repo, branch: "HEAD")
             .filter { $0 == "SKILL.md" || $0.hasSuffix("/SKILL.md") }
         var skills: [NewSkill] = []
-        for path in paths {
+        var seen = Set<String>()
+        for path in paths.sorted() {
             let folder = path == "SKILL.md"
                 ? source.repo
                 : String(path.dropLast("/SKILL.md".count).split(separator: "/").last ?? Substring(source.repo))
-            if known.contains(folder) { continue }
+            if known.contains(folder) || !seen.insert(folder).inserted { continue }
             var name = folder
             var summary: String?
             do {

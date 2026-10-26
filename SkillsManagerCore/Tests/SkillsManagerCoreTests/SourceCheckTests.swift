@@ -79,3 +79,15 @@ private func lock(_ pairs: [(folder: String, source: String)]) -> SkillLock {
     let result = await SourceCheck(github: gh).run(lock: lock([("a", "o/r")]), installedFolders: ["a"])
     #expect(result == SourceCheckResult(findings: [], completed: true))
 }
+
+@Test func duplicateFolderNamesAreReportedOnce() async {
+    var gh = StubGitHubClient()
+    gh.trees["o/r"] = ["b/x/SKILL.md", "a/x/SKILL.md"]
+    gh.files["a/x/SKILL.md"] = skillFile("x", "A")
+    gh.files["b/x/SKILL.md"] = skillFile("x", "B")
+    let result = await SourceCheck(github: gh).run(lock: lock([("other", "o/r")]), installedFolders: ["other"])
+    #expect(result.findings.count == 1)
+    #expect(result.findings[0].skills.count == 1)
+    #expect(result.findings[0].skills[0].folder == "x")
+    #expect(result.findings[0].skills[0].path == "a/x/SKILL.md")
+}
