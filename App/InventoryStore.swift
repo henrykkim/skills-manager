@@ -22,6 +22,8 @@ final class InventoryStore {
 
     /// Set by the app so usage rescans ride along with every inventory reload.
     var onReload: (@MainActor () -> Void)?
+    /// Set by the app; called only for user-initiated Refresh (menu, ⌘R), never for watcher reloads.
+    var onManualRefresh: (@MainActor () -> Void)?
 
     private(set) var scope: LibraryScope = .everywhere
     /// Set by the app so usage stats follow the scope.
@@ -94,6 +96,12 @@ final class InventoryStore {
                 self.onReload?()
             }
         }
+    }
+
+    /// User-initiated Refresh: a normal reload, plus the manual-only hook.
+    func refresh() {
+        reload()
+        onManualRefresh?()
     }
 
     func acknowledgeProjectAccess() {

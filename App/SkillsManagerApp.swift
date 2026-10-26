@@ -38,7 +38,7 @@ struct SkillsManagerApp: App {
                 }
             }
             CommandGroup(after: .toolbar) {
-                Button("Refresh") { store.reload() }
+                Button("Refresh") { store.refresh() }
                     .keyboardShortcut("r")
                     .disabled(store.isLoading)
             }
