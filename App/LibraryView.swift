@@ -31,8 +31,13 @@ struct LibraryView: View {
         runner: ShellCommandRunner())
 
     var body: some View {
-        NavigationSplitView {
+        // Always-visible sidebar with a hard floor: `navigationSplitViewColumnWidth(min:)`
+        // alone isn't honoured on macOS 26/27, and a sidebar narrower than its
+        // toolbar content sweeps the title and sort menus into the » overflow.
+        // With the sidebar toggle removed, a collapsed sidebar has no way back.
+        NavigationSplitView(columnVisibility: .constant(.all)) {
             sidebar
+                .frame(minWidth: 340)
                 .navigationSplitViewColumnWidth(min: 340, ideal: 360)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
@@ -63,9 +68,7 @@ struct LibraryView: View {
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills, commands, and projects")
         .navigationTitle("Skills Manager")
         .toolbar {
-            if sourceUpdates.isVisible {
-                ToolbarItem { SourceUpdatesButton() }
-            }
+            sourceUpdatesToolbarItem
             ToolbarItem {
                 Button { showInstall = true } label: { Label("Install", systemImage: "plus") }
                     .help("Install a skill or plugin from a link or command")
@@ -109,6 +112,16 @@ struct LibraryView: View {
                 Task { @MainActor in installModel.text = s; showInstall = true }
             }
             return true
+        }
+    }
+
+    /// The "What's new" bell, present only while there is something new so
+    /// the toolbar is unchanged otherwise. Kept out of the main `.toolbar`
+    /// builder: the conditional there pushed the type-checker over its limit.
+    @ToolbarContentBuilder
+    private var sourceUpdatesToolbarItem: some ToolbarContent {
+        if sourceUpdates.isVisible {
+            ToolbarItem { SourceUpdatesButton() }
         }
     }
 

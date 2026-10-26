@@ -1,27 +1,24 @@
 import SwiftUI
 import SkillsManagerCore
 
-/// Toolbar bell with a count capsule; toggles the "New from your sources" popover.
+/// Toolbar bell with the count inside the capsule (toolbar buttons clip any
+/// overlay drawn outside their bounds); toggles the "New from your sources" popover.
 struct SourceUpdatesButton: View {
     @Environment(SourceUpdatesModel.self) private var model
     @State private var presented = false
 
     var body: some View {
         Button { presented.toggle() } label: {
-            Label("What's new", systemImage: "bell.badge")
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "bell.badge.fill")
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.red, .primary)
+                Text("\(model.newSkillCount)")
+                    .font(.body.weight(.semibold).monospacedDigit())
+            }
+            .accessibilityLabel("What's new, \(model.newSkillCount) new skills")
         }
         .help("New skills from sources you've installed from")
-        .overlay(alignment: .topTrailing) {
-            if model.newSkillCount > 0 {
-                Text("\(model.newSkillCount)")
-                    .font(.caption2.bold())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 5)
-                    .background(Capsule().fill(.red))
-                    .offset(x: 6, y: -4)
-                    .allowsHitTesting(false)
-            }
-        }
         .popover(isPresented: $presented, arrowEdge: .bottom) {
             SourceUpdatesPopover(close: { presented = false })
         }
