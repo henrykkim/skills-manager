@@ -42,7 +42,7 @@
 **Interfaces:**
 - Produces:
   ```swift
-  public struct SkillSource: Sendable, Hashable, Comparable {
+  public struct SkillRepo: Sendable, Hashable, Comparable {
       public let owner: String
       public let repo: String
       public var label: String { "\(owner)/\(repo)" }           // "owner/repo"
@@ -50,7 +50,7 @@
       public init?(label: String?)                               // nil unless exactly two non-empty "/"-separated segments
   }
   extension SkillLock {
-      public var sources: [SkillSource]                           // distinct, sorted
+      public var sources: [SkillRepo]                           // distinct, sorted
       public var folderNames: Set<String>                         // every key in "skills"
   }
   ```
@@ -83,17 +83,17 @@
     """#)
     defer { try? FileManager.default.removeItem(at: file) }
     #expect(SkillLock.load(file: file).sources.map(\.label) == ["ok/repo"])
-    #expect(SkillSource(label: "o/r")?.htmlURL == URL(string: "https://github.com/o/r"))
-    #expect(SkillSource(label: "/r") == nil)
+    #expect(SkillRepo(label: "o/r")?.htmlURL == URL(string: "https://github.com/o/r"))
+    #expect(SkillRepo(label: "/r") == nil)
 }
 ```
 
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `cd SkillsManagerCore && swift test --filter SkillLockTests`
-Expected: compile error, `sources` and `SkillSource` undefined.
+Expected: compile error, `sources` and `SkillRepo` undefined.
 
-- [ ] **Step 3: Implement `SkillSource` and the two computed properties in `SkillLock.swift`**
+- [ ] **Step 3: Implement `SkillRepo` and the two computed properties in `SkillLock.swift`**
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -143,7 +143,7 @@ git commit -m "feat(core): enumerate skill sources from the lock file"
       public func key(_ skill: NewSkill) -> String     // "owner/repo#folder"
   }
   public struct SourceCheckResult: Sendable, Equatable {
-      public let findings: [SourceFinding]  // only repos with ≥1 new skill, sorted by SkillSource order
+      public let findings: [SourceFinding]  // only repos with ≥1 new skill, sorted by SkillRepo order
       public let completed: Bool            // false after .rateLimited or .network
   }
   public struct SourceCheck: Sendable {
