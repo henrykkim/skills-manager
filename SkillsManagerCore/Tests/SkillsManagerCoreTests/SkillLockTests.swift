@@ -88,4 +88,5 @@ private func writeTemp(_ contents: String) throws -> URL {
     #expect(SkillLock.load(file: file).sources.map(\.label) == ["ok/repo"])
     #expect(SkillRepo(label: "o/r")?.htmlURL == URL(string: "https://github.com/o/r"))
     #expect(SkillRepo(label: "/r") == nil)
+    #expect(SkillRepo(label: "my owner/repo") == nil)
 }
