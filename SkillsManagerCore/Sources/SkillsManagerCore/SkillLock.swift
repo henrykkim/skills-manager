@@ -56,22 +56,31 @@ public struct SkillRepo: Sendable, Hashable, Comparable {
     /// "owner/repo"
     public var label: String { "\(owner)/\(repo)" }
 
+    /// Safe to force-unwrap: init only accepts segments of [A-Za-z0-9._-], which always form a valid URL.
     public var htmlURL: URL { URL(string: "https://github.com/\(owner)/\(repo)")! }
 
-    /// Parses "owner/repo". Anything else (empty parts, extra segments, full URLs) is nil.
+    /// Parses "owner/repo". Anything else (empty parts, extra segments, full URLs, characters
+    /// outside GitHub's allowed set [A-Za-z0-9._-]) is nil.
     public init?(label: String?) {
         guard let label else { return nil }
         let parts = label.split(separator: "/", omittingEmptySubsequences: false)
-        guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else { return nil }
+        guard parts.count == 2,
+              parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(SkillRepo.isAllowedSegmentCharacter) }) else {
+            return nil
+        }
         self.owner = String(parts[0])
         self.repo = String(parts[1])
     }
 
+    private static func isAllowedSegmentCharacter(_ c: Character) -> Bool {
+        c.isASCII && (c.isLetter || c.isNumber || c == "." || c == "_" || c == "-")
+    }
+
     /// Orders by owner, then repo, ignoring case.
     public static func < (lhs: SkillRepo, rhs: SkillRepo) -> Bool {
-        let owner = lhs.owner.localizedCaseInsensitiveCompare(rhs.owner)
+        let owner = lhs.owner.caseInsensitiveCompare(rhs.owner)
         if owner != .orderedSame { return owner == .orderedAscending }
-        return lhs.repo.localizedCaseInsensitiveCompare(rhs.repo) == .orderedAscending
+        return lhs.repo.caseInsensitiveCompare(rhs.repo) == .orderedAscending
     }
 }
 
