@@ -14,6 +14,7 @@ enum LibrarySelection: Hashable {
 struct LibraryView: View {
     @Environment(InventoryStore.self) private var store
     @Environment(UsageStore.self) private var usage
+    @Environment(SourceUpdatesModel.self) private var sourceUpdates
     @State private var selection: LibrarySelection?
     @State private var searchText = ""
     @State private var expandedPlugins: Set<String> = []
@@ -62,6 +63,9 @@ struct LibraryView: View {
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search skills, commands, and projects")
         .navigationTitle("Skills Manager")
         .toolbar {
+            if sourceUpdates.isVisible {
+                ToolbarItem { SourceUpdatesButton() }
+            }
             ToolbarItem {
                 Button { showInstall = true } label: { Label("Install", systemImage: "plus") }
                     .help("Install a skill or plugin from a link or command")
@@ -620,4 +624,5 @@ extension Notification.Name {
     static let showInstallSheet = Notification.Name("SkillsManager.showInstallSheet")
     static let showRecommendations = Notification.Name("SkillsManager.showRecommendations")
     static let showAddFolder = Notification.Name("SkillsManager.showAddFolder")
+    static let showSourceUpdates = Notification.Name("SkillsManager.showSourceUpdates")
 }
