@@ -112,15 +112,23 @@ final class SourceUpdatesModel {
             return
         }
         lastRunFailed = false
-        findings = result.findings
+        // An install may have finished while the check ran; don't resurrect skills that are now present.
+        let installedNow = InstalledSkillFolders.names(paths: paths)
+        findings = result.findings.compactMap { f in
+            let rest = f.skills.filter { !installedNow.contains($0.folder) }
+            return rest.isEmpty ? nil : SourceFinding(owner: f.owner, repo: f.repo, skills: rest)
+        }
         persistFindings()
-        let notified = Set(defaults.stringArray(forKey: Key.notified) ?? [])
+        let liveKeys = Set(findings.flatMap { f in f.skills.map { f.key($0) } })
+        rowStates = rowStates.filter { liveKeys.contains($0.key) }
+        let notifiedList = defaults.stringArray(forKey: Key.notified) ?? []
+        let notified = Set(notifiedList)
         let unannounced = SourceUpdatesRules.unannouncedKeys(findings: findings, notified: notified)
         dismissedUntilNew = SourceUpdatesRules.dismissedAfterCheck(
             previouslyDismissed: dismissedUntilNew, unannounced: unannounced)
         defaults.set(dismissedUntilNew, forKey: Key.dismissed)
         if !unannounced.isEmpty {
-            defaults.set((defaults.stringArray(forKey: Key.notified) ?? []) + unannounced, forKey: Key.notified)
+            defaults.set(notifiedList + unannounced, forKey: Key.notified)
         }
         if let text = SourceUpdatesRules.notificationText(findings: findings, unannounced: unannounced) {
             onAnnounce?(text.title, text.body)
