@@ -34,7 +34,7 @@ public struct InstallResolver: Sendable {
         }
         guard !paths.isEmpty else { throw InstallError.noSkills }
 
-        let installed = installedSkillFolders()
+        let installed = InstalledSkillFolders.names(paths: self.paths)
         var skills: [PreviewSkill] = []
         for path in paths.prefix(Self.maxSkills) {
             let folder = path == "SKILL.md" ? repo : String(path.dropLast("/SKILL.md".count).split(separator: "/").last ?? Substring(repo))
@@ -78,18 +78,6 @@ public struct InstallResolver: Sendable {
                               authorName: owner, authorURL: info.ownerURL, sourceURL: info.htmlURL,
                               skills: skills, marketplaceNote: nil, isPluginInstalled: false,
                               owner: owner, repo: repo, pluginName: nil, marketplace: nil, marketplaceSource: nil)
-    }
-
-    /// Folder names present in either skills dir (symlinks count — that's how connected skills look).
-    private func installedSkillFolders() -> Set<String> {
-        let fm = FileManager.default
-        var names = Set<String>()
-        for dir in [paths.personalSkillsDir, paths.sharedSkillsDir] {
-            for entry in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? [] where !entry.hasPrefix(".") {
-                names.insert(entry)
-            }
-        }
-        return names
     }
 
     // MARK: plugin
