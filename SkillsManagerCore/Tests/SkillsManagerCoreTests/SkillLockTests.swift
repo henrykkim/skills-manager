@@ -61,3 +61,31 @@ private func writeTemp(_ contents: String) throws -> URL {
     let paths = ClaudePaths(home: URL(fileURLWithPath: "/tmp/fakehome"))
     #expect(paths.agentsLockFile.path == "/tmp/fakehome/.agents/.skill-lock.json")
 }
+
+@Test func sourcesAreDistinctAndSorted() throws {
+    let file = try writeTemp(#"""
+    { "skills": {
+        "b": { "source": "zed/skills" },
+        "a": { "source": "Alpha/tools" },
+        "c": { "source": "zed/skills" } } }
+    """#)
+    defer { try? FileManager.default.removeItem(at: file) }
+    let lock = SkillLock.load(file: file)
+    #expect(lock.sources.map(\.label) == ["Alpha/tools", "zed/skills"])
+    #expect(lock.folderNames == ["a", "b", "c"])
+}
+
+@Test func sourcesSkipsMalformedLabels() throws {
+    let file = try writeTemp(#"""
+    { "skills": {
+        "a": { "source": "" },
+        "b": { },
+        "c": { "source": "one/two/three" },
+        "d": { "source": "https://github.com/o/r" },
+        "e": { "source": "ok/repo" } } }
+    """#)
+    defer { try? FileManager.default.removeItem(at: file) }
+    #expect(SkillLock.load(file: file).sources.map(\.label) == ["ok/repo"])
+    #expect(SkillRepo(label: "o/r")?.htmlURL == URL(string: "https://github.com/o/r"))
+    #expect(SkillRepo(label: "/r") == nil)
+}
