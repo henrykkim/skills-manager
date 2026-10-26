@@ -48,6 +48,44 @@ public struct SkillLock: Sendable {
     }
 }
 
+/// A GitHub repository that skills were installed from, identified by its "owner/repo" label.
+public struct SkillRepo: Sendable, Hashable, Comparable {
+    public let owner: String
+    public let repo: String
+
+    /// "owner/repo"
+    public var label: String { "\(owner)/\(repo)" }
+
+    public var htmlURL: URL { URL(string: "https://github.com/\(owner)/\(repo)")! }
+
+    /// Parses "owner/repo". Anything else (empty parts, extra segments, full URLs) is nil.
+    public init?(label: String?) {
+        guard let label else { return nil }
+        let parts = label.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else { return nil }
+        self.owner = String(parts[0])
+        self.repo = String(parts[1])
+    }
+
+    /// Orders by owner, then repo, ignoring case.
+    public static func < (lhs: SkillRepo, rhs: SkillRepo) -> Bool {
+        let owner = lhs.owner.localizedCaseInsensitiveCompare(rhs.owner)
+        if owner != .orderedSame { return owner == .orderedAscending }
+        return lhs.repo.localizedCaseInsensitiveCompare(rhs.repo) == .orderedAscending
+    }
+}
+
+extension SkillLock {
+    /// Distinct GitHub repos across all entries, sorted. Entries with malformed labels are skipped.
+    public var sources: [SkillRepo] {
+        let unique = Set(entries.values.compactMap { SkillRepo(label: $0.sourceLabel) })
+        return unique.sorted()
+    }
+
+    /// Every skill folder name recorded in the lock file.
+    public var folderNames: Set<String> { Set(entries.keys) }
+}
+
 /// Turns the URLs Claude Code and skills.sh store into something a browser can open.
 enum GitURL {
     /// "https://github.com/o/r.git" → https://github.com/o/r ; nil/empty → nil.
