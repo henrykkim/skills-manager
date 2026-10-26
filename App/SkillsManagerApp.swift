@@ -1,3 +1,4 @@
+import SkillsManagerCore
 import Sparkle
 import SwiftUI
 
@@ -5,6 +6,8 @@ import SwiftUI
 struct SkillsManagerApp: App {
     @State private var store = InventoryStore()
     @State private var usage = UsageStore()
+    @State private var sourceUpdates = SourceUpdatesModel(
+        paths: ClaudePaths(), github: URLSessionGitHubClient(), runner: ShellCommandRunner())
     /// Sparkle's standard updater: checks on its own schedule (release builds
     /// only — see SU_AUTOMATIC_CHECKS) and always asks before installing.
     private let updaterController = SPUStandardUpdaterController(
@@ -15,10 +18,14 @@ struct SkillsManagerApp: App {
             LibraryView()
                 .environment(store)
                 .environment(usage)
+                .environment(sourceUpdates)
                 .task {
                     store.onReload = { usage.refresh() }
                     store.onScopeChange = { usage.setScope($0) }
+                    store.onManualRefresh = { sourceUpdates.checkIfDue(.manual) }
+                    sourceUpdates.onAnnounce = { SourceUpdatesNotifier.shared.announce(title: $0, body: $1) }
                     store.start()
+                    sourceUpdates.start()
                 }
                 .frame(minWidth: 760, minHeight: 480)
         }
