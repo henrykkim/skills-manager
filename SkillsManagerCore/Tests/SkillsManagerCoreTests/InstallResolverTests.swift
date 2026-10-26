@@ -15,7 +15,9 @@ struct StubGitHubClient: GitHubClient {
         return r
     }
     func treePaths(owner: String, repo: String, branch: String) async throws -> [String] {
-        trees["\(owner)/\(repo)"] ?? []
+        if let failure { throw failure }
+        guard let t = trees["\(owner)/\(repo)"] else { throw InstallError.repoNotFound }
+        return t
     }
     func raw(owner: String, repo: String, branch: String, path: String) async throws -> String {
         guard let f = files[path] else { throw InstallError.other("missing \(path)") }
@@ -23,7 +25,7 @@ struct StubGitHubClient: GitHubClient {
     }
 }
 
-private func skillFile(_ name: String, _ desc: String) -> String {
+func skillFile(_ name: String, _ desc: String) -> String {
     "---\nname: \(name)\ndescription: \(desc)\n---\n\n# \(name)\n\nBody of \(name).\n"
 }
 
