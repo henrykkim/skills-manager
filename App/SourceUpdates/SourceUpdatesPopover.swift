@@ -39,9 +39,14 @@ struct SourceUpdatesPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("New from your sources").font(.headline)
-            ForEach(model.findings) { finding in
-                section(finding)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    ForEach(model.findings) { finding in
+                        section(finding)
+                    }
+                }
             }
+            .frame(maxHeight: 420)
             footer
         }
         .padding(Spacing.lg)
@@ -71,9 +76,11 @@ struct SourceUpdatesPopover: View {
         return HStack(alignment: .top, spacing: Spacing.sm) {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(skill.name)
-                Text(skill.summary ?? "")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if let summary = skill.summary, !summary.isEmpty {
+                    Text(summary)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 if case .failed(let message, let log) = state {
                     Text(message).font(.caption).foregroundStyle(.red)
                     DisclosureGroup("Show Details") {

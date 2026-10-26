@@ -24,6 +24,8 @@ struct SkillsManagerApp: App {
                     store.onScopeChange = { usage.setScope($0) }
                     store.onManualRefresh = { sourceUpdates.checkIfDue(.manual) }
                     sourceUpdates.onAnnounce = { SourceUpdatesNotifier.shared.announce(title: $0, body: $1) }
+                    // Touch the notifier so its UNUserNotificationCenter delegate is set before any notification click arrives.
+                    _ = SourceUpdatesNotifier.shared
                     store.start()
                     sourceUpdates.start()
                 }
